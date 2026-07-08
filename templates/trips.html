@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eBoat — My Trips</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0F2436">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#0A1929;--panel:#0F2436;--panel-light:#16344A;--line:#27475F;--text:#E7EEF2;--text-dim:#8FA8B8;--amber:#F4A93B;--teal:#2FB8A6;--danger:#E5564A;--radius:10px}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--ink);color:var(--text)}
+nav{display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 16px;height:52px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}nav::-webkit-scrollbar{display:none}
+.nav-brand{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;margin-right:auto}
+.nav-link{color:var(--text-dim);text-decoration:none;font-size:13px;font-weight:600;padding:6px 10px;border-radius:var(--radius);border:1px solid transparent;white-space:nowrap;flex:none}
+.nav-link:hover{background:var(--panel-light);color:var(--text)}
+.nav-link.active{border-color:var(--line);color:var(--amber)}
+.nav-link.danger{color:var(--danger)}
+main{max-width:900px;margin:0 auto;padding:28px 16px}
+h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.subtitle{color:var(--text-dim);font-size:14px;margin-bottom:28px}
+.empty{text-align:center;padding:60px 20px;color:var(--text-dim)}
+.empty svg{width:48px;height:48px;margin-bottom:12px;opacity:.4}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.trip-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.trip-name{font-weight:700;font-size:15px;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.meta-item{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);background:var(--panel-light);padding:3px 8px;border-radius:6px}
+.meta-item span{color:var(--amber)}
+.trip-date{font-size:12px;color:var(--text-dim);margin-bottom:14px}
+.trip-actions{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:opacity .15s;text-decoration:none}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--teal);color:var(--ink)}
+.btn-danger{background:rgba(229,86,74,.12);color:var(--danger);border:1px solid rgba(229,86,74,.25)}
+</style>
+</head>
+<body>
+<nav>
+  <span class="nav-brand">⚓ eBoat</span>
+  <a class="nav-link" href="/">Dashboard</a>
+  <a class="nav-link" href="/planner.html">Planner</a>
+  <a class="nav-link active" href="/trips.html">Trips</a>
+  <a class="nav-link" href="/profile.html">Profile</a>
+  <a class="nav-link" id="nav-admin-link" href="/admin.html" style="display:none">Admin</a>
+  <a class="nav-link danger" href="#" onclick="logout();return false">Sign out</a>
+</nav>
+
+<main>
+  <h1>My Trips</h1>
+  <p class="subtitle">Recorded voyages — signed in as <strong id="nav-username"></strong></p>
+  <div id="content"><div class="empty"><p>Loading…</p></div></div>
+</main>
+
+<script src="/auth.js"></script>
+<script>
+eBoatReady(() => loadTrips());
+
+function fmtDuration(s) {
+  if(!s) return '—';
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  return h>0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+async function loadTrips() {
+  const r = await fetch('/api/trips', {credentials:'include'});
+  const trips = await r.json();
+  const el = document.getElementById('content');
+  if(!trips.length) {
+    el.innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <p>No trips recorded yet.</p>
+      <p style="margin-top:6px;font-size:13px">Hit REC on the dashboard to start recording your first trip.</p>
+    </div>`;
+    return;
+  }
+  el.innerHTML = `<div class="grid">${trips.map(t => `
+    <div class="trip-card">
+      <div class="trip-name">${t.name}</div>
+      <div class="trip-meta">
+        <div class="meta-item"><span>${t.distance_nm ? t.distance_nm.toFixed(1) : '0'}</span> nm</div>
+        <div class="meta-item"><span>${fmtDuration(t.duration_seconds)}</span></div>
+        <div class="meta-item"><span>${t.point_count || 0}</span> pts</div>
+      </div>
+      <div class="trip-date">${new Date(t.created_at).toLocaleString()}</div>
+      <div class="trip-actions">
+        <a class="btn btn-primary" href="/api/trips/${t.id}/download">↓ GPX</a>
+        <button class="btn btn-danger" onclick="deleteTrip(${t.id})">Delete</button>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+async function deleteTrip(id) {
+  if(!confirm('Delete this trip recording?')) return;
+  await fetch(`/api/trips/${id}`, {method:'DELETE', credentials:'include'});
+  loadTrips();
+}
+</script>
+</body>
+</html>

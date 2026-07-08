@@ -1,0 +1,29 @@
+services:
+  api:
+    build: ./api
+    container_name: eboat-api
+    volumes:
+      - ./data:/data
+    environment:
+      - DATABASE_URL=/data/eboat.db
+      - DEFAULT_GOOGLE_MAPS_KEY=${GOOGLE_MAPS_API_KEY}
+      - DEFAULT_ADMIRALTY_KEY=${ADMIRALTY_API_KEY}
+      - DEFAULT_AISSTREAM_KEY=${AISSTREAM_API_KEY:-}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme123}
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    container_name: eboat-web
+    ports:
+      - "8080:80"
+    environment:
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+    volumes:
+      - ./templates:/templates:ro
+      - ./entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    depends_on:
+      - api
+    restart: unless-stopped

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eBoat — Profile</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0F2436">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#0A1929;--panel:#0F2436;--panel-light:#16344A;--line:#27475F;--text:#E7EEF2;--text-dim:#8FA8B8;--amber:#F4A93B;--teal:#2FB8A6;--danger:#E5564A;--green:#4CAF50;--radius:10px}
+html,body{min-height:100%;font-family:'Inter',sans-serif;background:var(--ink);color:var(--text)}
+nav{display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 16px;height:52px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}nav::-webkit-scrollbar{display:none}
+.nav-brand{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;margin-right:auto}
+.nav-link{color:var(--text-dim);text-decoration:none;font-size:13px;font-weight:600;padding:6px 10px;border-radius:var(--radius);border:1px solid transparent;white-space:nowrap;flex:none}
+.nav-link:hover{background:var(--panel-light);color:var(--text)}
+.nav-link.active{border-color:var(--line);color:var(--amber)}
+.nav-link.danger{color:var(--danger)}
+main{max-width:600px;margin:0 auto;padding:28px 16px}
+h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.subtitle{color:var(--text-dim);font-size:14px;margin-bottom:28px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:20px;overflow:hidden}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:15px}
+.card-body{padding:18px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+input[type=text],input[type=password],input[type=email]{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:var(--radius);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:10px 12px;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--teal)}
+input:disabled{opacity:.5;cursor:not-allowed}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:9px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--teal);color:var(--ink)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-ghost{background:var(--panel-light);color:var(--text);border:1px solid var(--line)}
+.msg{font-size:13px;margin-top:10px;padding:8px 12px;border-radius:var(--radius);display:none}
+.msg.ok{background:rgba(47,184,166,.12);border:1px solid rgba(47,184,166,.3);color:var(--teal)}
+.msg.err{background:rgba(229,86,74,.12);border:1px solid rgba(229,86,74,.3);color:var(--danger)}
+/* Toggle switch */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:18px}
+.toggle-label h3{font-size:14px;font-weight:600;margin-bottom:2px}
+.toggle-label p{font-size:12px;color:var(--text-dim)}
+.toggle{position:relative;display:inline-block;width:44px;height:24px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--line);border-radius:12px;cursor:pointer;transition:.2s}
+.toggle-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s}
+input:checked+.toggle-slider{background:var(--teal)}
+input:checked+.toggle-slider:before{transform:translateX(20px);background:#fff}
+/* Key input row */
+.key-row{display:flex;gap:8px;margin-bottom:12px;align-items:flex-start}
+.key-row .form-group{flex:1;margin-bottom:0}
+.key-status{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none;margin-top:22px}
+.key-status.ok{background:var(--green)}
+.key-status.fail{background:var(--danger)}
+.key-status.testing{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<nav>
+  <span class="nav-brand">⚓ eBoat</span>
+  <a class="nav-link" href="/">Dashboard</a>
+  <a class="nav-link" href="/planner.html">Planner</a>
+  <a class="nav-link" href="/trips.html">Trips</a>
+  <a class="nav-link active" href="/profile.html">Profile</a>
+  <a class="nav-link" id="nav-admin-link" href="/admin.html" style="display:none">Admin</a>
+  <a class="nav-link danger" href="#" onclick="logout();return false">Sign out</a>
+</nav>
+
+<main>
+  <h1>Profile & Settings</h1>
+  <p class="subtitle">Signed in as <strong id="nav-username"></strong></p>
+
+  <!-- Change Password -->
+  <div class="card">
+    <div class="card-header">Change Password</div>
+    <div class="card-body">
+      <div class="form-group"><label>Current Password</label><input type="password" id="cur-pw"></div>
+      <div class="form-group"><label>New Password</label><input type="password" id="new-pw"></div>
+      <div class="form-group"><label>Confirm New Password</label><input type="password" id="con-pw"></div>
+      <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+      <div class="msg" id="pw-msg"></div>
+    </div>
+  </div>
+
+  <!-- API Keys -->
+  <div class="card">
+    <div class="card-header">API Keys</div>
+    <div class="card-body">
+      <div class="toggle-row">
+        <div class="toggle-label">
+          <h3>Use default API keys</h3>
+          <p>Use the server's built-in keys — no configuration needed</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="use-defaults" onchange="toggleDefaultKeys(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div id="own-keys" style="display:none">
+        <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px">
+          Enter your own API keys. All keys must pass the test before you can save.
+        </p>
+
+        <div class="key-row">
+          <div class="form-group">
+            <label>Google Maps API Key</label>
+            <input type="text" id="k-google" placeholder="AIza…" oninput="keyChanged('google')">
+          </div>
+          <span class="key-status" id="ks-google"></span>
+        </div>
+        <div class="key-row">
+          <div class="form-group">
+            <label>Admiralty Tidal API Key</label>
+            <input type="text" id="k-admiralty" placeholder="Primary key from developer.admiralty.co.uk" oninput="keyChanged('admiralty')">
+          </div>
+          <span class="key-status" id="ks-admiralty"></span>
+        </div>
+        <div class="key-row">
+          <div class="form-group">
+            <label>AIS Stream API Key</label>
+            <input type="text" id="k-aisstream" placeholder="Key from aisstream.io" oninput="keyChanged('aisstream')">
+          </div>
+          <span class="key-status" id="ks-aisstream"></span>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn btn-ghost" onclick="testKeys()">Test Keys</button>
+          <button class="btn btn-primary" id="save-keys-btn" disabled onclick="saveKeys()">Save Keys</button>
+        </div>
+      </div>
+
+      <div id="default-keys-active" style="display:none">
+        <p style="font-size:13px;color:var(--teal)">✓ Using server default API keys</p>
+      </div>
+
+      <div class="msg" id="keys-msg"></div>
+    </div>
+  </div>
+</main>
+
+<script src="/auth.js"></script>
+<script>
+let testResults = {google: false, admiralty: false, aisstream: false};
+
+eBoatReady((user, config) => {
+  const useDefaults = user.use_default_keys;
+  document.getElementById('use-defaults').checked = useDefaults;
+  toggleDefaultKeys(useDefaults);
+  if(!useDefaults) {
+    document.getElementById('k-google').value    = config.google_maps_key || '';
+    document.getElementById('k-admiralty').value = config.admiralty_key   || '';
+    document.getElementById('k-aisstream').value = config.aisstream_key   || '';
+  }
+});
+
+function toggleDefaultKeys(useDefaults) {
+  document.getElementById('own-keys').style.display            = useDefaults ? 'none' : 'block';
+  document.getElementById('default-keys-active').style.display = useDefaults ? 'block' : 'none';
+  if(useDefaults) saveSettingsWithDefaults(true);
+}
+
+async function saveSettingsWithDefaults(useDefaults) {
+  if(!useDefaults) return; // handled by saveKeys
+  await fetch('/api/me/settings', {
+    method:'PUT', credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({use_default_keys: true})
+  });
+}
+
+function keyChanged(key) {
+  // Reset test status when a key changes
+  testResults[key] = false;
+  setKeyStatus(key, '');
+  document.getElementById('save-keys-btn').disabled = true;
+}
+
+function setKeyStatus(key, state) {
+  const el = document.getElementById(`ks-${key}`);
+  el.className = `key-status ${state}`;
+}
+
+async function testKeys() {
+  const keys = {
+    google_maps_key: document.getElementById('k-google').value.trim(),
+    admiralty_key:   document.getElementById('k-admiralty').value.trim(),
+    aisstream_key:   document.getElementById('k-aisstream').value.trim()
+  };
+  ['google','admiralty','aisstream'].forEach(k => setKeyStatus(k, 'testing'));
+  const r = await fetch('/api/me/test-keys', {
+    method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(keys)
+  });
+  const results = await r.json();
+  testResults.google    = results.google_maps === true;
+  testResults.admiralty = results.admiralty   === true;
+  testResults.aisstream = results.aisstream   === true;
+  setKeyStatus('google',    testResults.google    ? 'ok' : 'fail');
+  setKeyStatus('admiralty', testResults.admiralty ? 'ok' : 'fail');
+  setKeyStatus('aisstream', testResults.aisstream ? 'ok' : 'fail');
+
+  const allOk = testResults.google && testResults.admiralty && testResults.aisstream;
+  document.getElementById('save-keys-btn').disabled = !allOk;
+  const msg = document.getElementById('keys-msg');
+  if(!allOk) {
+    const failed = Object.entries(testResults).filter(([,v])=>!v).map(([k])=>k);
+    msg.textContent = `Test failed for: ${failed.join(', ')}. Fix these keys before saving.`;
+    msg.className = 'msg err'; msg.style.display = 'block';
+  } else {
+    msg.textContent = 'All keys verified — you can now save.';
+    msg.className = 'msg ok'; msg.style.display = 'block';
+  }
+}
+
+async function saveKeys() {
+  const msg = document.getElementById('keys-msg');
+  const body = {
+    use_default_keys: false,
+    google_maps_key:  document.getElementById('k-google').value.trim(),
+    admiralty_key:    document.getElementById('k-admiralty').value.trim(),
+    aisstream_key:    document.getElementById('k-aisstream').value.trim()
+  };
+  const r = await fetch('/api/me/settings', {
+    method:'PUT', credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  if(r.ok) {
+    msg.textContent = 'API keys saved successfully.';
+    msg.className = 'msg ok'; msg.style.display = 'block';
+  } else {
+    const d = await r.json();
+    msg.textContent = d.detail || 'Error saving keys';
+    msg.className = 'msg err'; msg.style.display = 'block';
+  }
+}
+
+async function changePassword() {
+  const cur = document.getElementById('cur-pw').value;
+  const nw  = document.getElementById('new-pw').value;
+  const con = document.getElementById('con-pw').value;
+  const msg = document.getElementById('pw-msg');
+  msg.style.display = 'none';
+  if(nw !== con) {
+    msg.textContent='New passwords do not match'; msg.className='msg err'; msg.style.display='block'; return;
+  }
+  if(nw.length < 8) {
+    msg.textContent='Password must be at least 8 characters'; msg.className='msg err'; msg.style.display='block'; return;
+  }
+  const r = await fetch('/api/me/password', {
+    method:'PUT', credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({current_password:cur, new_password:nw})
+  });
+  if(r.ok) {
+    msg.textContent='Password updated successfully';
+    msg.className='msg ok'; msg.style.display='block';
+    ['cur-pw','new-pw','con-pw'].forEach(id=>document.getElementById(id).value='');
+  } else {
+    const d=await r.json();
+    msg.textContent=d.detail||'Error updating password';
+    msg.className='msg err'; msg.style.display='block';
+  }
+}
+</script>
+</body>
+</html>

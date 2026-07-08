@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eBoat Admin</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0F2436">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#0A1929;--panel:#0F2436;--panel-light:#16344A;--line:#27475F;--text:#E7EEF2;--text-dim:#8FA8B8;--amber:#F4A93B;--teal:#2FB8A6;--danger:#E5564A;--green:#4CAF50;--radius:10px}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--ink);color:var(--text)}
+nav{display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 16px;height:52px;flex:none}
+.nav-brand{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;margin-right:auto}
+.nav-link{color:var(--text-dim);text-decoration:none;font-size:13px;font-weight:600;padding:6px 10px;border-radius:var(--radius);border:1px solid transparent;white-space:nowrap;flex:none}
+.nav-link:hover{background:var(--panel-light);color:var(--text)}
+.nav-link.active{border-color:var(--line);color:var(--amber)}
+.nav-link.danger{color:var(--danger)}
+main{max-width:1000px;margin:0 auto;padding:28px 16px}
+h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.subtitle{color:var(--text-dim);font-size:14px;margin-bottom:28px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:28px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.stat-value{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--amber)}
+.stat-label{font-size:12px;color:var(--text-dim);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:24px;overflow:hidden}
+.card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+.card-title{font-weight:700;font-size:15px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:11px 16px;text-align:left;font-size:13px;border-bottom:1px solid var(--line)}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);font-weight:600;background:var(--ink)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--panel-light)}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase}
+.badge-admin{background:rgba(244,169,59,.15);color:var(--amber)}
+.badge-user{background:rgba(47,184,166,.1);color:var(--teal)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--teal);color:var(--ink)}
+.btn-danger{background:rgba(229,86,74,.15);color:var(--danger);border:1px solid rgba(229,86,74,.3)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-backdrop.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:400px}
+.modal h2{font-size:18px;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.form-group input,.form-group select{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:var(--radius);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:10px 12px;outline:none}
+.form-group input:focus,.form-group select:focus{border-color:var(--teal)}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.error-msg{color:var(--danger);font-size:13px;margin-top:8px;display:none}
+.log-list{max-height:260px;overflow-y:auto}
+.log-item{padding:8px 16px;font-size:12px;font-family:'IBM Plex Mono',monospace;border-bottom:1px solid var(--line);color:var(--text-dim)}
+.log-item:last-child{border-bottom:none}
+.log-item span{color:var(--text)}
+</style>
+</head>
+<body>
+<nav>
+  <span class="nav-brand">⚓ eBoat</span>
+  <a class="nav-link" href="/">Dashboard</a>
+  <a class="nav-link" href="/planner.html">Planner</a>
+  <a class="nav-link" href="/trips.html">Trips</a>
+  <a class="nav-link" href="/profile.html">Profile</a>
+  <a class="nav-link active" id="nav-admin-link" href="/admin.html">Admin</a>
+  <a class="nav-link danger" href="#" onclick="logout();return false">Sign out</a>
+</nav>
+
+<main>
+  <h1>Admin Panel</h1>
+  <p class="subtitle">Signed in as <strong id="nav-username"></strong></p>
+
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat"><div class="stat-value" id="s-users">—</div><div class="stat-label">Total Users</div></div>
+    <div class="stat"><div class="stat-value" id="s-routes">—</div><div class="stat-label">Saved Routes</div></div>
+    <div class="stat"><div class="stat-value" id="s-trips">—</div><div class="stat-label">Trip Recordings</div></div>
+    <div class="stat"><div class="stat-value" id="s-today">—</div><div class="stat-label">Active Today</div></div>
+    <div class="stat"><div class="stat-value" id="s-week">—</div><div class="stat-label">Active This Week</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Users</span>
+      <button class="btn btn-primary btn-sm" onclick="showCreateModal()">+ New User</button>
+    </div>
+    <table>
+      <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Routes</th><th>Trips</th><th>Last Seen</th><th></th></tr></thead>
+      <tbody id="users-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Recent Activity</span></div>
+    <div class="log-list" id="log-list"></div>
+  </div>
+</main>
+
+<!-- Create user modal -->
+<div class="modal-backdrop" id="createModal">
+  <div class="modal">
+    <h2>Create User</h2>
+    <div class="form-group"><label>Username</label><input id="c-username" type="text"></div>
+    <div class="form-group"><label>Email (optional)</label><input id="c-email" type="email"></div>
+    <div class="form-group"><label>Password</label><input id="c-password" type="password"></div>
+    <div class="form-group"><label>Role</label>
+      <select id="c-role"><option value="user">User</option><option value="admin">Admin</option></select>
+    </div>
+    <div class="error-msg" id="c-err"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="hideCreateModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="createUser()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script src="/auth.js"></script>
+<script>
+eBoatReady((user) => {
+  if(user.role !== 'admin') window.location.href = '/';
+  loadData();
+});
+
+async function loadData() {
+  const [stats, users] = await Promise.all([
+    fetch('/api/admin/stats', {credentials:'include'}).then(r=>r.json()),
+    fetch('/api/admin/users', {credentials:'include'}).then(r=>r.json())
+  ]);
+  document.getElementById('s-users').textContent  = stats.total_users;
+  document.getElementById('s-routes').textContent = stats.total_routes;
+  document.getElementById('s-trips').textContent  = stats.total_trips;
+  document.getElementById('s-today').textContent  = stats.active_today;
+  document.getElementById('s-week').textContent   = stats.active_week;
+  renderUsers(users);
+  renderLog(stats.recent_actions);
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${u.username}</strong></td>
+      <td>${u.email || '—'}</td>
+      <td><span class="badge badge-${u.role}">${u.role}</span></td>
+      <td>${u.route_count}</td>
+      <td>${u.trip_count}</td>
+      <td>${u.last_seen ? new Date(u.last_seen).toLocaleDateString() : 'Never'}</td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.username}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderLog(actions) {
+  const el = document.getElementById('log-list');
+  el.innerHTML = actions.map(a => `
+    <div class="log-item">
+      <span>${a.username || 'unknown'}</span>
+      &nbsp;·&nbsp;${a.action}
+      &nbsp;·&nbsp;${new Date(a.created_at).toLocaleString()}
+    </div>
+  `).join('') || '<div class="log-item">No activity yet</div>';
+}
+
+function showCreateModal() { document.getElementById('createModal').classList.add('show'); }
+function hideCreateModal() { document.getElementById('createModal').classList.remove('show'); }
+
+async function createUser() {
+  const err = document.getElementById('c-err');
+  err.style.display = 'none';
+  const body = {
+    username: document.getElementById('c-username').value.trim(),
+    email: document.getElementById('c-email').value.trim() || null,
+    password: document.getElementById('c-password').value,
+    role: document.getElementById('c-role').value
+  };
+  if(!body.username || !body.password) { err.textContent='Username and password required'; err.style.display='block'; return; }
+  const r = await fetch('/api/admin/users', {
+    method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  if(r.ok) {
+    hideCreateModal();
+    ['c-username','c-email','c-password'].forEach(id => document.getElementById(id).value='');
+    loadData();
+  } else {
+    const d = await r.json();
+    err.textContent = d.detail || 'Error creating user';
+    err.style.display = 'block';
+  }
+}
+
+async function deleteUser(id, username) {
+  if(!confirm(`Delete user "${username}"? This removes all their routes and trips too.`)) return;
+  const r = await fetch(`/api/admin/users/${id}`, {method:'DELETE', credentials:'include'});
+  if(r.ok) loadData();
+  else { const d=await r.json(); alert(d.detail); }
+}
+</script>
+</body>
+</html>

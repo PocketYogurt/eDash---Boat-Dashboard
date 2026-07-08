@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="eBoat">
+<meta name="theme-color" content="#0F2436">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<title>eBoat Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+
+<style>
+:root{
+    --ink:#0A1929;
+    --panel:#0F2436;
+    --panel-light:#16344A;
+    --line:#27475F;
+    --text:#E7EEF2;
+    --text-dim:#8FA8B8;
+    --amber:#F4A93B;
+    --amber-dim:#7A5A22;
+    --teal:#2FB8A6;
+    --danger:#E5564A;
+    --green:#4CAF50;
+    --radius:10px;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+html, body{
+    height:100%;
+    font-family:'Inter',sans-serif;
+    background:var(--ink);
+    color:var(--text);
+    overscroll-behavior:none;
+    overflow:hidden;
+}
+
+/* ---------- NAV TABS ---------- */
+#nav{
+    display:flex;
+    align-items:center;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:0 12px;
+    height:48px;
+    gap:4px;
+    flex:none;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+}
+#nav::-webkit-scrollbar{ display:none; }
+#nav-brand{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    margin-right:auto;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
+}
+.nav-tab{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:6px 12px;
+    border-radius:var(--radius);
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-dim);
+    text-decoration:none;
+    border:1px solid transparent;
+    transition:all .15s;
+    white-space:nowrap;
+    flex:none;
+}
+.nav-tab:hover{ background:var(--panel-light); color:var(--text); }
+.nav-tab.active{
+    background:var(--panel-light);
+    border-color:var(--line);
+    color:var(--amber);
+}
+.nav-tab svg{ width:14px; height:14px; }
+
+/* ---------- LAYOUT ---------- */
+#app{
+    display:flex;
+    flex-direction:column;
+    height:100%;
+}
+
+/* Main content area below nav */
+#content{
+    display:flex;
+    flex:1;
+    min-height:0;
+}
+
+/* ---------- INSTRUMENT PANEL (left column) ---------- */
+#instruments{
+    display:flex;
+    flex-direction:column;
+    width:130px;
+    flex:none;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    overflow:hidden;
+}
+
+.inst{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:10px 8px;
+    border-bottom:1px solid var(--line);
+    min-height:0;
+    gap:2px;
+}
+.inst:last-child{ border-bottom:none; }
+
+.inst-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    white-space:nowrap;
+}
+.inst-value{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:26px;
+    font-weight:700;
+    color:var(--amber);
+    line-height:1;
+    white-space:nowrap;
+}
+.inst-unit{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    color:var(--text-dim);
+}
+.inst-sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    color:var(--text-dim);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:100%;
+    text-align:center;
+}
+.inst-value.green{ color:var(--green); }
+.inst-value.danger{ color:var(--danger); }
+.inst-value.teal{ color:var(--teal); }
+.inst-value.dim{ color:var(--text-dim); font-size:18px; }
+
+/* ---------- MAP (right, fills remaining space) ---------- */
+#map-wrap{
+    flex:1;
+    position:relative;
+    min-width:0;
+    overflow:hidden; /* clips expanded map in course-up mode */
+}
+#map{
+    position:absolute;
+    inset:0;
+    transition:transform 0.4s ease; /* only rotate transitions; inset changes instantly */
+    transform-origin:center center;
+}
+
+/* ---------- GPS LOST OVERLAY ---------- */
+#gps-overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(10,25,41,.85);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    z-index:10;
+    font-family:'IBM Plex Mono',monospace;
+}
+#gps-overlay svg{ width:48px; height:48px; color:var(--text-dim); }
+#gps-overlay p{ color:var(--text-dim); font-size:13px; }
+#gps-overlay.hidden{ display:none; }
+
+/* Follow button — highlighted in amber when NOT following to draw attention */
+.map-btn.follow-lost{ border-color:var(--amber); color:var(--amber); }
+
+/* GPS coordinates overlay — bottom-centre of the map */
+#coordsDisplay{
+    position:absolute;
+    bottom:10px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:5;
+    background:rgba(15,36,54,.88);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:4px 12px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+    pointer-events:none;
+    white-space:nowrap;
+    letter-spacing:0.04em;
+}
+
+/* ---------- FLOATING MAP CONTROLS (Record + AIS) ---------- */
+#map-controls{
+    position:absolute;
+    top:10px;
+    right:10px;
+    z-index:5;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+.map-btn{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    color:var(--text-dim);
+    cursor:pointer;
+    padding:7px 10px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.05em;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    white-space:nowrap;
+    transition:border-color .15s, color .15s;
+}
+.map-btn:hover{ border-color:var(--text-dim); color:var(--text); }
+.map-btn.active{ border-color:var(--teal); color:var(--teal); }
+.map-btn.recording{ border-color:var(--danger); color:var(--danger); animation: recpulse 1.5s infinite; }
+@keyframes recpulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.6; }
+}
+.map-btn-dot{
+    width:8px; height:8px;
+    border-radius:50%;
+    background:currentColor;
+    flex:none;
+}
+#aisCount{
+    background:var(--teal);
+    color:var(--ink);
+    border-radius:8px;
+    padding:1px 5px;
+    font-size:10px;
+    font-weight:700;
+    display:none;
+}
+#aisCount.show{ display:inline; }
+
+/* AIS vessel info popup */
+.ais-info{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:8px 10px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--text);
+    min-width:130px;
+}
+.ais-info .ais-name{ font-weight:700; color:var(--teal); margin-bottom:3px; }
+.ais-info .ais-detail{ color:var(--text-dim); }
+#tide-bar-wrap{
+    width:80%;
+    height:4px;
+    background:var(--line);
+    border-radius:2px;
+    overflow:hidden;
+    margin-top:2px;
+}
+#tide-bar{
+    height:100%;
+    background:var(--teal);
+    border-radius:2px;
+    transition:width .5s ease;
+}
+
+/* ---------- INSTRUMENT DETAIL OVERLAY ---------- */
+#inst-overlay{
+    position:fixed;
+    inset:0;
+    z-index:50;
+    background:var(--ink);
+    display:none;
+    flex-direction:column;
+}
+#inst-overlay.show{ display:flex; }
+.ov-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+    flex:none;
+}
+.ov-title{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+}
+.ov-close{
+    background:none;
+    border:none;
+    color:var(--text-dim);
+    font-size:22px;
+    cursor:pointer;
+    line-height:1;
+    padding:0 4px;
+}
+.ov-close:hover{ color:var(--text); }
+.ov-body{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:24px 20px;
+    gap:12px;
+    overflow-y:auto;
+}
+.ov-value{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:72px;
+    font-weight:700;
+    color:var(--amber);
+    line-height:1;
+}
+.ov-value.teal{ color:var(--teal); }
+.ov-unit{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:16px;
+    color:var(--text-dim);
+    margin-top:-4px;
+}
+.ov-sub{
+    font-size:14px;
+    color:var(--text-dim);
+    text-align:center;
+}
+.ov-emoji{ font-size:72px; line-height:1; }
+.ov-table{
+    width:100%;
+    max-width:340px;
+    border-collapse:collapse;
+    margin-top:8px;
+}
+.ov-table td{
+    padding:10px 12px;
+    font-size:14px;
+    border-bottom:1px solid var(--line);
+}
+.ov-table td:first-child{ color:var(--text-dim); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+.ov-table td:last-child{ font-family:'IBM Plex Mono',monospace; color:var(--amber); text-align:right; }
+.ov-table tr:last-child td{ border-bottom:none; }
+.ov-tide-event{ color:var(--text); }
+.ov-tide-event.hw td:last-child{ color:var(--amber); }
+.ov-tide-event.lw td:last-child{ color:var(--teal); }
+.ov-compass{
+    position:relative;
+    width:140px;
+    height:140px;
+}
+/* Make tiles tappable */
+.inst{ cursor:pointer; }
+.inst:active{ background:var(--panel-light); }
+   On very narrow screens (portrait phone) flip back to
+   a bottom strip so nothing gets too squeezed.           */
+@media (max-width: 480px) and (orientation: portrait){
+    #content{ flex-direction:column; }
+    #instruments{
+        width:100%;
+        flex-direction:row;
+        border-right:none;
+        border-top:1px solid var(--line);
+        order:2;
+        height:76px;
+        flex:none;
+    }
+    .inst{
+        border-bottom:none;
+        border-right:1px solid var(--line);
+        padding:4px 2px;
+        gap:1px;
+    }
+    .inst:last-child{ border-right:none; }
+    .inst-value{ font-size:16px; }
+    .inst-unit{ font-size:9px; }
+    /* Sub-text (station names, wind direction, weather detail) doesn't fit
+       in portrait tiles — hide to prevent overflow */
+    .inst-sub{ display:none; }
+    #map-wrap{ order:1; flex:1; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Navigation tabs (shared with route planner) -->
+  <nav id="nav">
+    <span id="nav-brand">⚓ eBoat</span>
+    <a class="nav-tab active" href="/index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+      Dashboard
+    </a>
+    <a class="nav-tab" href="/planner.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Planner
+    </a>
+    <a class="nav-tab" href="/trips.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><circle cx="12" cy="12" r="2" fill="currentColor"/>
+      </svg>
+      Trips
+    </a>
+    <a class="nav-tab" href="/profile.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span id="nav-username">Profile</span>
+    </a>
+    <a class="nav-tab" id="nav-admin-link" href="/admin.html" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Admin
+    </a>
+    <a class="nav-tab" href="#" onclick="logout();return false" style="color:var(--danger,#E5564A)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      Out
+    </a>
+  </nav>
+
+  <!-- Main content: instruments left, map right -->
+  <div id="content">
+
+    <!-- Instrument panel (left column) -->
+    <div id="instruments">
+      <!-- Speed -->
+      <div class="inst" onclick="openOverlay('speed')">
+        <div class="inst-label">Speed</div>
+        <div class="inst-value" id="inst-speed">—</div>
+        <div class="inst-unit">knots</div>
+      </div>
+
+      <!-- Heading -->
+      <div class="inst" onclick="openOverlay('heading')">
+        <div class="inst-label">Heading</div>
+        <div class="inst-value teal" id="inst-heading">—</div>
+        <div class="inst-unit" id="inst-heading-cardinal">—</div>
+      </div>
+
+      <!-- Wind -->
+      <div class="inst" onclick="openOverlay('wind')">
+        <div class="inst-label">Wind</div>
+        <div class="inst-value" id="inst-wind">—</div>
+        <div class="inst-unit">knots</div>
+        <div class="inst-sub" id="inst-wind-dir">—</div>
+      </div>
+
+      <!-- Weather -->
+      <div class="inst" onclick="openOverlay('weather')">
+        <div class="inst-label">Weather</div>
+        <div class="inst-value dim" id="inst-weather">—</div>
+        <div class="inst-sub" id="inst-temp">—</div>
+      </div>
+
+      <!-- Tide -->
+      <div class="inst" onclick="openOverlay('tide')">
+        <div class="inst-label">Tide</div>
+        <div class="inst-value teal" id="inst-tide">—</div>
+        <div class="inst-sub" id="inst-tide-next">—</div>
+        <div id="tide-bar-wrap"><div id="tide-bar" style="width:50%"></div></div>
+      </div>
+    </div>
+
+    <!-- Live map (right, fills remaining space) -->
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div id="gps-overlay">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          <path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+        </svg>
+        <p>Acquiring GPS fix…</p>
+      </div>
+      <!-- Floating controls: Record trip + Follow + Course-up + AIS -->
+      <div id="map-controls">
+        <button id="btnRecord" class="map-btn" title="Record trip">
+          <span class="map-btn-dot"></span>
+          <span id="recLabel">REC</span>
+        </button>
+        <button id="btnFollow" class="map-btn" title="Re-centre on vessel">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+          FOLLOW
+        </button>
+        <button id="btnCourseUp" class="map-btn" title="Toggle North-up / Course-up">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span id="courseUpLabel">N↑</span>
+        </button>
+        <button id="btnAIS" class="map-btn" title="Toggle AIS vessel tracking" style="display:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+          AIS
+          <span id="aisCount"></span>
+        </button>
+      </div>
+
+      <!-- GPS coordinate display -->
+      <div id="coordsDisplay">— °N &nbsp; — °E</div>
+    </div>
+
+  </div><!-- /#content -->
+
+  <!-- Instrument detail overlay — shown when a tile is tapped -->
+  <div id="inst-overlay">
+    <div class="ov-header">
+      <span class="ov-title" id="ov-title"></span>
+      <button class="ov-close" onclick="closeOverlay()" title="Back">×</button>
+    </div>
+    <div class="ov-body" id="ov-body"></div>
+  </div>
+</div>
+
+<script>
+// ── Map style + icon helpers (identical to route planner for consistency) ─────
+function fixIcon(color, scale){
+    const s = scale || 22;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}">
+        <circle cx="${s/2}" cy="${s/2}" r="${s/2-3}" fill="none" stroke="${color}" stroke-width="2.5"/>
+        <circle cx="${s/2}" cy="${s/2}" r="2.6" fill="${color}"/>
+    </svg>`;
+    return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(s, s),
+        anchor: new google.maps.Point(s/2, s/2)
+    };
+}
+
+// Boat-shaped position marker that rotates to show heading.
+// Uses a custom SVG path string directly (Google Maps accepts raw path data on
+// the icon.path property, not just SymbolPath constants). The hull shape points
+// north (up) at rotation 0 — Google Maps rotates it to match GPS heading.
+// Falls back to a symmetrical teardrop when heading is null (stationary).
+function boatIcon(heading){
+    return {
+        // Boat hull: pointed bow at top, wider beam amidships, rounded stern.
+        // Path is centered on origin so the anchor sits at the vessel's centre.
+        path: 'M 0,-12 C 5,-8 7,-2 7,4 L 5,10 L 0,12 L -5,10 L -7,4 C -7,-2 -5,-8 0,-12 Z',
+        fillColor: '#2FB8A6',
+        fillOpacity: 1,
+        strokeColor: '#0A1929',
+        strokeWeight: 1.5,
+        scale: 1.3,
+        rotation: heading || 0,
+        anchor: new google.maps.Point(0, 0)
+    };
+}
+
+const MAP_STYLE = [
+    {elementType:'geometry', stylers:[{color:'#0c2230'}]},
+    {elementType:'labels.text.fill', stylers:[{color:'#8FA8B8'}]},
+    {elementType:'labels.text.stroke', stylers:[{color:'#0A1929'}]},
+    {featureType:'water', elementType:'geometry', stylers:[{color:'#0A1929'}]},
+    {featureType:'landscape', elementType:'geometry', stylers:[{color:'#102A3D'}]},
+    {featureType:'poi', stylers:[{visibility:'off'}]},
+    {featureType:'transit', stylers:[{visibility:'off'}]},
+    {featureType:'road', elementType:'geometry', stylers:[{color:'#1B3E54'}]},
+    {featureType:'road', elementType:'labels', stylers:[{visibility:'off'}]},
+    {featureType:'administrative', elementType:'geometry.stroke', stylers:[{color:'#27475F'}]}
+];
+
+// ── Planned Route (view-only, synced from Route Planner via localStorage) ────
+let routePolyline = null;
+let routeMarkers  = [];
+
+function loadPlannedRoute(){
+    try {
+        const raw = localStorage.getItem('eboat_route_' + (window.__user ? window.__user.id : '0'));
+        drawPlannedRoute(raw ? JSON.parse(raw) : []);
+    } catch(e){
+        console.warn('Could not read planned route:', e);
+    }
+}
+
+function drawPlannedRoute(points){
+    // Clear existing
+    routeMarkers.forEach(m => m.setMap(null));
+    routeMarkers = [];
+    if(routePolyline){ routePolyline.setMap(null); routePolyline = null; }
+
+    if(!points || points.length < 2) return;
+
+    // Draw the route line — same teal colour as the route planner
+    routePolyline = new google.maps.Polyline({
+        map,
+        path: points.map(p => new google.maps.LatLng(p.lat, p.lng)),
+        strokeColor: '#2FB8A6',
+        strokeOpacity: 0.85,
+        strokeWeight: 3,
+        clickable: false,   // view-only — no interaction
+        zIndex: 5
+    });
+
+    // Start marker — teal, same as route planner's first waypoint
+    routeMarkers.push(new google.maps.Marker({
+        map,
+        position: points[0],
+        icon: fixIcon('#2FB8A6'),
+        title: 'Start',
+        clickable: false,
+        zIndex: 6
+    }));
+
+    // End marker — amber, same as route planner's subsequent waypoints
+    routeMarkers.push(new google.maps.Marker({
+        map,
+        position: points[points.length - 1],
+        icon: fixIcon('#F4A93B'),
+        title: 'End',
+        clickable: false,
+        zIndex: 6
+    }));
+}
+
+// Poll for route changes every 5 seconds — catches edits made in the
+// Route Planner tab without needing any cross-tab messaging setup.
+function startRoutePoll(){
+    loadPlannedRoute();
+    setInterval(loadPlannedRoute, 5000);
+}
+
+// AIS API key — substituted by envsubst at container start.
+// Empty string means the user hasn't configured it; AIS button stays hidden.
+let AIS_API_KEY = ''; // set from /api/me/config after auth
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let map, boatMarker, accuracyCircle;
+let watchId = null;
+let lastPos = null;
+let weatherCache = null;
+let weatherFetchedAt = 0;
+let tideInitStarted = false;
+
+// Map interaction state
+let mapFollowing = true;   // whether the map pans to keep the vessel centred
+let courseUp = false;      // true = vessel heading at top; false = north at top
+let lastHeading = 0;       // retained so course-up still works when stationary
+let lastSpeed = null;      // last known speed in knots (for overlay)
+
+// AIS state
+let aisSocket = null;
+let aisEnabled = false;
+let aisVessels = {}; // keyed by MMSI
+let aisInfoWindow = null;
+
+// Trip recorder state
+let isRecording = false;
+let tripPoints = [];
+let tripPolyline = null;
+let recTimerInterval = null;
+let recStartTime = null;
+
+const WEATHER_TTL = 10 * 60 * 1000; // refresh weather every 10 min
+
+// ─── Google Maps init (callback) ──────────────────────────────────────────────
+function initMap() {
+    // Restore last known map position
+    const savedState = loadMapState();
+
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: savedState.zoom,
+        center: savedState.center,
+        mapTypeId: 'roadmap',
+        disableDefaultUI: true,
+        gestureHandling: 'greedy',
+        styles: MAP_STYLE
+    });
+
+    // OpenSeaMap nautical overlay — same as route planner
+    const seamarkOverlay = new google.maps.ImageMapType({
+        getTileUrl: (coord, zoom) =>
+            `https://tiles.openseamap.org/seamark/${zoom}/${coord.x}/${coord.y}.png`,
+        tileSize: new google.maps.Size(256, 256),
+        minZoom: 8,
+        maxZoom: 18,
+        name: 'OpenSeaMap',
+        opacity: 1
+    });
+    map.overlayMapTypes.push(seamarkOverlay);
+
+    // Persist map state when view settles
+    map.addListener('idle', saveMapState);
+
+    startGPS();
+    startRoutePoll();
+    fetchWeather(savedState.center.lat, savedState.center.lng);
+
+    // Kick off tides immediately using the last known map position — don't
+    // wait for a GPS fix, which may be slow or unavailable indoors. When GPS
+    // eventually locks, onPosition will refresh the station if needed.
+    tideInitStarted = true;
+    initTides(savedState.center.lat, savedState.center.lng);
+
+    initRecorder();
+    initAIS();
+    initFollowControls();
+}
+
+function saveMapState(){
+    try {
+        const c = map.getCenter();
+        localStorage.setItem('eboat_map_state', JSON.stringify({
+            center: { lat: c.lat(), lng: c.lng() },
+            zoom: map.getZoom()
+        }));
+    } catch(e){}
+}
+
+function loadMapState(){
+    try {
+        const raw = localStorage.getItem('eboat_map_state');
+        if(raw) return JSON.parse(raw);
+    } catch(e){}
+    return { center: { lat:51.19, lng:0.35 }, zoom: 13 }; // Medway/Hadlow default
+}
+
+// ─── GPS / Geolocation ────────────────────────────────────────────────────────
+function startGPS() {
+    if (!navigator.geolocation) {
+        setOverlay('GPS not available in this browser.');
+        return;
+    }
+
+    watchId = navigator.geolocation.watchPosition(onPosition, onGPSError, {
+        enableHighAccuracy: true,
+        maximumAge: 2000,
+        timeout: 10000
+    });
+}
+
+function onPosition(pos) {
+    const { latitude: lat, longitude: lng, speed, heading, accuracy } = pos.coords;
+    lastPos = pos.coords;
+
+    // Hide the "acquiring GPS" overlay
+    document.getElementById('gps-overlay').classList.add('hidden');
+
+    // Move / create boat marker
+    const latlng = { lat, lng };
+    if (!boatMarker) {
+        boatMarker = new google.maps.Marker({
+            map,
+            position: latlng,
+            icon: boatIcon(heading),
+            title: 'Your position',
+            zIndex: 10
+        });
+        map.setCenter(latlng);
+    } else {
+        boatMarker.setPosition(latlng);
+        // In course-up mode the icon always points up (heading is at top of screen).
+        // In north-up mode the icon rotates to absolute heading.
+        // Always use the real heading for the icon — the CSS rotation on
+        // #map already puts heading-direction at the top of the screen in
+        // course-up mode, so we just let it do the maths. boatIcon(0) would
+        // fight the CSS rotation and make the bow point sideways.
+        boatMarker.setIcon(boatIcon(courseUp ? lastHeading : heading));
+        if (mapFollowing) {
+            // In course-up mode use setCenter (instant) so the vessel stays locked
+            // to the rotation pivot with no animation drift. In north-up mode
+            // panTo gives a smooth follow effect.
+            if(courseUp) map.setCenter(latlng);
+            else map.panTo(latlng);
+        }
+    }
+
+    // Update course-up rotation angle on each GPS fix.
+    // Only update the CSS transform here — no resize, no setTimeout.
+    // The full applyCourseUp() (with resize) is only called when the mode
+    // is first enabled; after that we just keep the angle current.
+    if (heading !== null) lastHeading = heading;
+    if (courseUp) {
+        document.getElementById('map').style.transform = `rotate(${-lastHeading}deg)`;
+    }
+
+    // Update GPS coordinate overlay
+    updateCoordsDisplay(lat, lng);
+
+    // Accuracy circle
+    if (!accuracyCircle) {
+        accuracyCircle = new google.maps.Circle({
+            map,
+            center: latlng,
+            radius: accuracy,
+            fillColor: '#2FB8A6',
+            fillOpacity: 0.12,
+            strokeColor: '#2FB8A6',
+            strokeOpacity: 0.4,
+            strokeWeight: 1
+        });
+    } else {
+        accuracyCircle.setCenter(latlng);
+        accuracyCircle.setRadius(accuracy);
+    }
+
+    // Update instruments
+    updateSpeedInst(speed, accuracy);
+    updateHeadingInst(heading);
+    setAccuracyDot(accuracy);
+
+    // Log point to trip recorder if active
+    recordPoint(lat, lng, speed, heading);
+
+    // Refresh weather if we've moved meaningfully or cache is stale
+    if (Date.now() - weatherFetchedAt > WEATHER_TTL) {
+        fetchWeather(lat, lng);
+    }
+
+    // If GPS puts us more than ~20km from the current tide station, re-fetch
+    // a closer one. This handles the case where tides were inited from a stale
+    // saved map position rather than the actual current location.
+    if (tideStation) {
+        const dlat = lat - tideStation.lat;
+        const dlng = lng - tideStation.lng;
+        const roughKm = Math.sqrt(dlat*dlat + dlng*dlng) * 111;
+        if (roughKm > 20) {
+            tideStation = null;
+            localStorage.removeItem(TIDE_STATION_CACHE_KEY);
+            initTides(lat, lng);
+        }
+    }
+}
+
+function onGPSError(err) {
+    setOverlay('GPS error: ' + err.message);
+}
+
+function setOverlay(msg) {
+    const el = document.getElementById('gps-overlay');
+    el.querySelector('p').textContent = msg;
+    el.classList.remove('hidden');
+}
+
+// ─── Instrument: Speed ────────────────────────────────────────────────────────
+function updateSpeedInst(speedMps, accuracy) {
+    const el = document.getElementById('inst-speed');
+    if (speedMps === null || speedMps === undefined) {
+        el.textContent = '—';
+        el.className = 'inst-value';
+        return;
+    }
+    const knots = speedMps * 1.94384;
+    lastSpeed = knots;
+    el.textContent = knots.toFixed(1);
+    // Colour-code: amber = normal, green = good cruise, danger = over speed limit (5kn Medway)
+    el.className = 'inst-value ' + (knots > 5 ? 'danger' : knots > 1 ? '' : 'dim');
+}
+
+// ─── Instrument: Heading ──────────────────────────────────────────────────────
+function updateHeadingInst(degrees) {
+    const valEl = document.getElementById('inst-heading');
+    const cardEl = document.getElementById('inst-heading-cardinal');
+    if (degrees === null || degrees === undefined) {
+        valEl.textContent = '—';
+        cardEl.textContent = '—';
+        return;
+    }
+    valEl.textContent = Math.round(degrees) + '°';
+    cardEl.textContent = degreesToCardinal(degrees);
+}
+
+function degreesToCardinal(deg) {
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+}
+
+// ─── Accuracy dot ─────────────────────────────────────────────────────────────
+function setAccuracyDot(accuracy) {
+    // No visible dot in this design - accuracy is shown via the circle on the map
+    // But we do set the GPS overlay hint
+}
+
+// ─── Weather (Open-Meteo — free, no API key) ──────────────────────────────────
+async function fetchWeather(lat, lng) {
+    weatherFetchedAt = Date.now();
+    try {
+        // Current conditions + hourly wind
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+            + `&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m`
+            + `&wind_speed_unit=kn`
+            + `&timezone=auto`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const c = data.current;
+        weatherCache = c;
+        updateWeatherInst(c);
+    } catch(e) {
+        console.warn('Weather fetch failed:', e);
+    }
+}
+
+function updateWeatherInst(c) {
+    document.getElementById('inst-wind').textContent = Math.round(c.wind_speed_10m);
+    document.getElementById('inst-wind-dir').textContent =
+        degreesToCardinal(c.wind_direction_10m) + ' ' + Math.round(c.wind_direction_10m) + '°';
+
+    const desc = wmoDescription(c.weather_code);
+    const tempEl = document.getElementById('inst-temp');
+    const weatherEl = document.getElementById('inst-weather');
+    weatherEl.textContent = desc.icon;
+    weatherEl.className = 'inst-value';
+    weatherEl.style.fontSize = '18px'; // smaller so emoji fits in landscape tiles
+    tempEl.textContent = Math.round(c.temperature_2m) + '°C · ' + desc.label;
+}
+
+// WMO Weather Code descriptions (subset relevant to UK boating)
+function wmoDescription(code) {
+    const map = {
+        0:  { icon:'☀️', label:'Clear'       },
+        1:  { icon:'🌤️', label:'Mostly clear' },
+        2:  { icon:'⛅', label:'Part cloudy'  },
+        3:  { icon:'☁️', label:'Overcast'     },
+        45: { icon:'🌫️', label:'Fog'          },
+        48: { icon:'🌫️', label:'Icy fog'      },
+        51: { icon:'🌦️', label:'Light drizzle'},
+        53: { icon:'🌦️', label:'Drizzle'      },
+        55: { icon:'🌦️', label:'Heavy drizzle'},
+        61: { icon:'🌧️', label:'Light rain'   },
+        63: { icon:'🌧️', label:'Rain'         },
+        65: { icon:'🌧️', label:'Heavy rain'   },
+        71: { icon:'🌨️', label:'Light snow'   },
+        73: { icon:'🌨️', label:'Snow'         },
+        75: { icon:'🌨️', label:'Heavy snow'   },
+        80: { icon:'🌦️', label:'Showers'      },
+        81: { icon:'🌦️', label:'Showers'      },
+        82: { icon:'⛈️', label:'Heavy shower' },
+        95: { icon:'⛈️', label:'Thunderstorm' },
+        99: { icon:'⛈️', label:'Severe storm' }
+    };
+    return map[code] || { icon:'🌡️', label:'Unknown' };
+}
+
+// ─── Tide (UKHO Admiralty Tidal API — real data via nginx proxy) ──────────────
+// The nginx proxy at /api/tides/* forwards to admiraltyapi.azure-api.net and
+// injects the Ocp-Apim-Subscription-Key header server-side, so the key is
+// never exposed in the browser.
+
+const TIDE_STATION_CACHE_KEY = 'eboat_tide_station';
+const TIDE_STATION_TTL = 24 * 60 * 60 * 1000; // re-check nearest station daily
+const TIDE_EVENTS_CACHE_KEY = 'eboat_tide_events';
+const TIDE_EVENTS_TTL = 60 * 60 * 1000; // refresh events hourly
+
+let tideStation = null;    // { id, name, lat, lng, fetchedAt }
+let tideEvents  = null;    // raw array of { EventType, DateTime, Height }
+
+async function initTides(lat, lng) {
+    // Load cached station if still valid
+    try {
+        const cached = JSON.parse(localStorage.getItem(TIDE_STATION_CACHE_KEY) || 'null');
+        if (cached && Date.now() - cached.fetchedAt < TIDE_STATION_TTL) {
+            tideStation = cached;
+        }
+    } catch(e) {}
+
+    // Find nearest station if we don't have a valid cached one
+    if (!tideStation) {
+        await fetchNearestStation(lat, lng);
+    }
+
+    // Load tidal events for the station
+    await refreshTideEvents();
+
+    // Render immediately then refresh hourly
+    renderTideInst();
+    setInterval(refreshTideEvents, TIDE_EVENTS_TTL);
+    setInterval(renderTideInst, 60000); // re-render every minute (time counts down)
+}
+
+async function fetchNearestStation(lat, lng) {
+    try {
+        const res = await fetch('/api/tides/Stations');
+        if (!res.ok) throw new Error('Stations fetch failed: ' + res.status);
+        const body = await res.json();
+
+        // The API may return a plain array of GeoJSON Features, or a
+        // GeoJSON FeatureCollection — handle both.
+        const stations = Array.isArray(body) ? body
+            : Array.isArray(body.features) ? body.features
+            : [];
+
+        if (stations.length === 0) {
+            console.warn('eBoat tides: stations response had no entries', body);
+            return;
+        }
+
+        // Find the closest station by straight-line distance
+        let best = null, bestDist = Infinity;
+        for (const s of stations) {
+            const sLat = s.geometry.coordinates[1];
+            const sLng = s.geometry.coordinates[0];
+            const d = Math.hypot(sLat - lat, sLng - lng);
+            if (d < bestDist) { bestDist = d; best = s; }
+        }
+
+        if (!best) return;
+        tideStation = {
+            id:        best.properties.Id,
+            name:      best.properties.Name,
+            lat:       best.geometry.coordinates[1],
+            lng:       best.geometry.coordinates[0],
+            fetchedAt: Date.now()
+        };
+        console.log('eBoat tides: nearest station →', tideStation.name, '(id:', tideStation.id + ')');
+        localStorage.setItem(TIDE_STATION_CACHE_KEY, JSON.stringify(tideStation));
+    } catch(e) {
+        console.warn('eBoat tides: could not fetch stations:', e);
+    }
+}
+
+async function refreshTideEvents() {
+    if (!tideStation) return;
+    try {
+        // Check cache first
+        const cached = JSON.parse(localStorage.getItem(TIDE_EVENTS_CACHE_KEY) || 'null');
+        if (cached && cached.stationId === tideStation.id &&
+            Date.now() - cached.fetchedAt < TIDE_EVENTS_TTL) {
+            tideEvents = cached.events;
+            return;
+        }
+
+        const res = await fetch(`/api/tides/Stations/${tideStation.id}/TidalEvents?duration=2`);
+        if (!res.ok) throw new Error('TidalEvents fetch failed: ' + res.status);
+        tideEvents = await res.json();
+        console.log('eBoat tides: got', tideEvents.length, 'events for', tideStation.name);
+        localStorage.setItem(TIDE_EVENTS_CACHE_KEY, JSON.stringify({
+            stationId: tideStation.id,
+            events:    tideEvents,
+            fetchedAt: Date.now()
+        }));
+    } catch(e) {
+        console.warn('Could not fetch tidal events:', e);
+    }
+    renderTideInst();
+}
+
+function renderTideInst() {
+    const tideEl = document.getElementById('inst-tide');
+    const nextEl = document.getElementById('inst-tide-next');
+    const bar    = document.getElementById('tide-bar');
+
+    if (!tideEvents || tideEvents.length === 0) {
+        tideEl.textContent = '—';
+        nextEl.textContent = tideStation ? tideStation.name : 'No data';
+        bar.style.width = '50%';
+        return;
+    }
+
+    const now = Date.now();
+
+    // Find the most recent past event and the next upcoming event
+    const sorted = [...tideEvents].sort((a, b) =>
+        new Date(a.DateTime) - new Date(b.DateTime));
+
+    let prev = null, next = null;
+    for (const ev of sorted) {
+        const t = new Date(ev.DateTime).getTime();
+        if (t <= now) prev = ev;
+        else if (!next) next = ev;
+    }
+
+    if (!next) {
+        tideEl.textContent = '—';
+        nextEl.textContent = 'No upcoming';
+        bar.style.width = '50%';
+        return;
+    }
+
+    const nextType = next.EventType; // 'HighWater' or 'LowWater'
+    const isFalling = nextType === 'LowWater'; // heading toward low water = ebbing
+
+    // How far through the current cycle are we? (for the fill bar)
+    let fraction = 0.5;
+    if (prev) {
+        const elapsed  = now - new Date(prev.DateTime).getTime();
+        const interval = new Date(next.DateTime).getTime() - new Date(prev.DateTime).getTime();
+        fraction = Math.max(0, Math.min(1, elapsed / interval));
+    }
+
+    // Bar: 100% = high water, 0% = low water
+    // If falling (prev = HW, next = LW): bar goes from 100% down to 0%
+    // If rising  (prev = LW, next = HW): bar goes from 0%  up   to 100%
+    const barPct = isFalling
+        ? Math.round((1 - fraction) * 100)
+        : Math.round(fraction * 100);
+
+    // Time to next turn
+    const msToNext = new Date(next.DateTime).getTime() - now;
+    const hh = Math.floor(msToNext / 3600000);
+    const mm = String(Math.floor((msToNext % 3600000) / 60000)).padStart(2,'0');
+
+    const label = nextType === 'HighWater' ? 'HW' : 'LW';
+    const stationShort = tideStation
+        ? tideStation.name.replace(/\s*\(.*?\)\s*/g, '').substring(0, 12)
+        : '';
+
+    tideEl.textContent = isFalling ? '↓ EBB' : '↑ FLOOD';
+    nextEl.textContent = `${label} in ${hh}h${mm} · ${stationShort}`;
+    bar.style.width = barPct + '%';
+}
+
+// ─── Map follow mode + course-up + coordinate display ────────────────────────
+function initFollowControls(){
+    // Dragging only disables follow in north-up mode.
+    // In course-up mode the vessel must stay centred (it is the rotation pivot),
+    // so dragging is allowed for momentary inspection but follow re-locks on the
+    // next GPS update via the courseUp branch in onPosition.
+    map.addListener('dragstart', () => {
+        if(!courseUp){
+            mapFollowing = false;
+            updateFollowBtn();
+        }
+    });
+
+    // Re-centre button
+    document.getElementById('btnFollow').addEventListener('click', () => {
+        mapFollowing = true;
+        updateFollowBtn();
+        if(lastPos) map.panTo({lat: lastPos.latitude, lng: lastPos.longitude});
+    });
+
+    // Course-up toggle
+    document.getElementById('btnCourseUp').addEventListener('click', () => {
+        courseUp = !courseUp;
+        const btn = document.getElementById('btnCourseUp');
+        btn.classList.toggle('active', courseUp);
+        document.getElementById('courseUpLabel').textContent = courseUp ? 'HDG↑' : 'N↑';
+        if(courseUp){
+            applyCourseUp();
+        } else {
+            // North-up: shrink map back, clear rotation, restore icons
+            const mapEl = document.getElementById('map');
+            mapEl.style.inset = '0';
+            mapEl.style.transform = '';
+            setTimeout(() => {
+                try { google.maps.event.trigger(map, 'resize'); } catch(e){}
+            }, 100);
+            // No icon updates needed — icons always use real heading/COG values;
+            // removing the CSS rotation is sufficient to restore north-up display.
+        }
+    });
+
+    updateFollowBtn();
+}
+
+// Course-up: vessel stays fixed at screen centre; map rotates around it.
+//
+// Why setCenter not panTo: panTo() triggers an animation calculated against the
+// current map size. If we immediately change inset (resizing the element), the
+// animation target pixel position is wrong and the vessel ends up off-centre.
+// setCenter() is synchronous — it updates the centre coordinate instantly with
+// no animation, so the subsequent resize can correctly anchor to the vessel.
+//
+// Why requestAnimationFrame: after changing inset the browser needs to recalculate
+// layout before the new element dimensions are available to JavaScript. rAF fires
+// after that layout pass, so when we trigger resize Google Maps reads the correct
+// 200%x200% element size and the subsequent setCenter places the vessel exactly
+// at the element centre (= visible area centre = rotation pivot).
+function applyCourseUp(){
+    mapFollowing = true;
+    updateFollowBtn();
+
+    const mapEl = document.getElementById('map');
+    const center = lastPos ? {lat: lastPos.latitude, lng: lastPos.longitude} : null;
+
+    // 1. Instant centre — no animation, no timing race
+    if(center) map.setCenter(center);
+
+    // 2. Expand map element instantly (no CSS transition on inset)
+    mapEl.style.inset = '-50%';
+
+    // 3. After layout recalculates for the new inset, resize Google Maps,
+    //    re-centre the vessel, then apply the rotation transition.
+    requestAnimationFrame(() => {
+        try { google.maps.event.trigger(map, 'resize'); } catch(e){}
+        if(center) map.setCenter(center);
+        mapEl.style.transform = `rotate(${-lastHeading}deg)`;
+    });
+
+    // No icon rotation changes needed here. The CSS rotate(-heading) on #map
+    // automatically makes every icon appear correctly oriented on screen:
+    //   - boatIcon(lastHeading) was pointing in heading direction (map-north space)
+    //     → after CSS rotate(-heading) it appears to point UP on screen ✓
+    //   - vesselIcon(cog) was pointing in cog direction (map-north space)
+    //     → after CSS rotate(-heading) it appears at (cog - heading) from screen-up ✓
+    // Manually pre-rotating icons (boatIcon(0), vesselIcon(relCog)) would
+    // double-apply the rotation and make everything point the wrong way.
+}
+
+function updateFollowBtn(){
+    // Highlighted amber when follow is LOST — prompts user to tap and re-lock
+    document.getElementById('btnFollow').classList.toggle('follow-lost', !mapFollowing);
+}
+
+function updateCoordsDisplay(lat, lng){
+    const latStr = Math.abs(lat).toFixed(4) + '°' + (lat >= 0 ? 'N' : 'S');
+    const lngStr = Math.abs(lng).toFixed(4) + '°' + (lng >= 0 ? 'E' : 'W');
+    document.getElementById('coordsDisplay').textContent = latStr + '   ' + lngStr;
+}
+
+// ─── AIS Vessel Tracking (aisstream.io) ──────────────────────────────────────
+function initAIS(){
+    const btn = document.getElementById('btnAIS');
+    // Only show the button if a key has been configured
+    if(!AIS_API_KEY || AIS_API_KEY === 'your_aisstream_key_here'){
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = 'flex';
+    btn.addEventListener('click', () => {
+        aisEnabled = !aisEnabled;
+        btn.classList.toggle('active', aisEnabled);
+        if(aisEnabled){
+            connectAIS();
+            // Reconnect with updated bounding box when map settles
+            map.addListener('idle', reconnectAIS);
+        } else {
+            if(aisSocket) aisSocket.close();
+            clearAllVessels();
+            document.getElementById('aisCount').classList.remove('show');
+        }
+    });
+    aisInfoWindow = new google.maps.InfoWindow();
+}
+
+function connectAIS(){
+    if(aisSocket) aisSocket.close();
+    const bounds = map.getBounds();
+    if(!bounds) return;
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+
+    aisSocket = new WebSocket('wss://stream.aisstream.io/v0/stream');
+
+    aisSocket.onopen = () => {
+        aisSocket.send(JSON.stringify({
+            APIKey: AIS_API_KEY,
+            BoundingBoxes: [[[sw.lat(), sw.lng()], [ne.lat(), ne.lng()]]],
+            FilterMessageTypes: ['PositionReport']
+        }));
+        console.log('eBoat AIS: connected');
+    };
+
+    aisSocket.onmessage = (evt) => {
+        try { processAISMessage(JSON.parse(evt.data)); } catch(e){}
+    };
+
+    aisSocket.onerror = () => console.warn('eBoat AIS: WebSocket error');
+    aisSocket.onclose = () => console.log('eBoat AIS: disconnected');
+}
+
+let aisReconnectTimer = null;
+function reconnectAIS(){
+    // Debounce reconnection — don't thrash the socket on every tiny pan
+    clearTimeout(aisReconnectTimer);
+    aisReconnectTimer = setTimeout(() => {
+        if(aisEnabled) connectAIS();
+    }, 1500);
+}
+
+function processAISMessage(data){
+    const msg  = data.Message?.PositionReport;
+    const meta = data.MetaData;
+    if(!msg || !meta) return;
+
+    const mmsi    = meta.MMSI;
+    const lat     = meta.latitude;
+    const lng     = meta.longitude;
+    const cog     = msg.Cog;
+    const sog     = msg.Sog;
+    const name    = (meta.ShipName || '').trim() || 'MMSI ' + mmsi;
+
+    if(!lat || !lng) return;
+
+    if(!aisVessels[mmsi]){
+        const marker = new google.maps.Marker({
+            map,
+            position: {lat, lng},
+            icon: vesselIcon(cog),
+            title: name,
+            zIndex: 5
+        });
+        marker.addListener('click', () => {
+            aisInfoWindow.setContent(
+                `<div class="ais-info">
+                    <div class="ais-name">${name}</div>
+                    <div class="ais-detail">MMSI: ${mmsi}</div>
+                    <div class="ais-detail">Speed: ${sog != null ? sog.toFixed(1) + ' kn' : '—'}</div>
+                    <div class="ais-detail">Course: ${cog != null ? Math.round(cog) + '°' : '—'}</div>
+                </div>`
+            );
+            aisInfoWindow.open(map, marker);
+        });
+        aisVessels[mmsi] = { marker, name, cog, lastSeen: Date.now() };
+    } else {
+        aisVessels[mmsi].marker.setPosition({lat, lng});
+        aisVessels[mmsi].cog = cog;
+        // In course-up mode use relative COG; in north-up use absolute COG
+        // Always use absolute COG — CSS rotation on #map handles course-up orientation
+        aisVessels[mmsi].marker.setIcon(vesselIcon(cog));
+        aisVessels[mmsi].marker.setTitle(name);
+        aisVessels[mmsi].lastSeen = Date.now();
+    }
+
+    // Update vessel count badge
+    const count = Object.keys(aisVessels).length;
+    const countEl = document.getElementById('aisCount');
+    countEl.textContent = count;
+    countEl.classList.toggle('show', count > 0);
+}
+
+function clearAllVessels(){
+    for(const mmsi in aisVessels){
+        aisVessels[mmsi].marker.setMap(null);
+    }
+    aisVessels = {};
+    document.getElementById('aisCount').textContent = '';
+}
+
+// Remove vessels not heard from in 10 minutes (they've left the area or stopped transmitting)
+setInterval(() => {
+    const cutoff = Date.now() - 10 * 60 * 1000;
+    for(const mmsi in aisVessels){
+        if(aisVessels[mmsi].lastSeen < cutoff){
+            aisVessels[mmsi].marker.setMap(null);
+            delete aisVessels[mmsi];
+        }
+    }
+    const count = Object.keys(aisVessels).length;
+    const countEl = document.getElementById('aisCount');
+    countEl.textContent = count;
+    countEl.classList.toggle('show', count > 0);
+}, 60000);
+
+// Vessel icon — white hull shape, smaller than the boat position marker,
+// rotated to match course over ground so direction is immediately visible
+function vesselIcon(cog){
+    return {
+        path: 'M 0,-9 C 3,-5 4,0 4,6 L 0,9 L -4,6 C -4,0 -3,-5 0,-9 Z',
+        fillColor: '#FFFFFF',
+        fillOpacity: 0.9,
+        strokeColor: '#0A1929',
+        strokeWeight: 1,
+        scale: 1,
+        rotation: cog || 0,
+        anchor: new google.maps.Point(0, 0)
+    };
+}
+
+// ─── Trip Recorder ───────────────────────────────────────────────────────────
+function initRecorder(){
+    const btn = document.getElementById('btnRecord');
+    btn.addEventListener('click', () => {
+        if(isRecording) stopRecording();
+        else startRecording();
+    });
+
+    // Restore any in-progress recording from a previous session
+    try {
+        const saved = JSON.parse(localStorage.getItem('eboat_rec_' + (window.__user ? window.__user.id : '0')) || 'null');
+        if(saved && saved.points && saved.points.length > 0){
+            tripPoints = saved.points;
+            recStartTime = saved.startTime;
+            isRecording = true;
+            btn.classList.add('recording');
+            drawTripTrack();
+            startRecTimer();
+        }
+    } catch(e){}
+}
+
+function startRecording(){
+    tripPoints = [];
+    recStartTime = Date.now();
+    isRecording = true;
+    document.getElementById('btnRecord').classList.add('recording');
+    startRecTimer();
+    if(tripPolyline){ tripPolyline.setMap(null); tripPolyline = null; }
+    console.log('eBoat recorder: started');
+}
+
+async function stopRecording(){
+    isRecording = false;
+    clearInterval(recTimerInterval);
+    recTimerInterval = null;
+    document.getElementById('btnRecord').classList.remove('recording');
+    document.getElementById('recLabel').textContent = 'REC';
+    localStorage.removeItem('eboat_rec_' + (window.__user ? window.__user.id : '0'));
+
+    if(tripPoints.length < 2){
+        alert('Not enough points recorded — go for a longer trip!');
+        return;
+    }
+
+    // Calculate stats
+    const distNm = (() => {
+        let d = 0;
+        for(let i=1;i<tripPoints.length;i++){
+            const a = new google.maps.LatLng(tripPoints[i-1].lat, tripPoints[i-1].lng);
+            const b = new google.maps.LatLng(tripPoints[i].lat, tripPoints[i].lng);
+            d += google.maps.geometry.spherical.computeDistanceBetween(a,b);
+        }
+        return +(d / 1852).toFixed(2);
+    })();
+    const durationSec = recStartTime ? Math.round((Date.now()-recStartTime)/1000) : 0;
+    const tripName = 'Trip ' + new Date().toLocaleDateString('en-GB');
+    const gpxData  = buildGPX(tripName);
+
+    try {
+        const r = await fetch('/api/trips', {
+            method:'POST', credentials:'include',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+                name: tripName,
+                gpx_data: gpxData,
+                point_count: tripPoints.length,
+                distance_nm: distNm,
+                duration_seconds: durationSec,
+                started_at: tripPoints[0]?.ts || null
+            })
+        });
+        if(r.ok){
+            alert(`Trip saved! ${distNm} nm in ${Math.round(durationSec/60)} min. View it in My Trips.`);
+        } else {
+            // Fall back to local download if server save fails
+            downloadGPX(gpxData, tripName);
+        }
+    } catch(e) {
+        downloadGPX(gpxData, tripName);
+    }
+    console.log('eBoat recorder: stopped,', tripPoints.length, 'points,', distNm, 'nm');
+}
+
+function recordPoint(lat, lng, speed, heading){
+    if(!isRecording) return;
+
+    tripPoints.push({
+        lat, lng,
+        speed: speed ? +(speed * 1.94384).toFixed(2) : 0, // m/s → knots
+        heading: heading ? Math.round(heading) : null,
+        ts: new Date().toISOString()
+    });
+
+    drawTripTrack();
+
+    // Persist to localStorage every 10 points so a page refresh doesn't lose progress
+    if(tripPoints.length % 10 === 0){
+        try {
+            localStorage.setItem('eboat_rec_' + (window.__user ? window.__user.id : '0'), JSON.stringify({
+                points: tripPoints,
+                startTime: recStartTime
+            }));
+        } catch(e){}
+    }
+}
+
+function drawTripTrack(){
+    const path = tripPoints.map(p => ({lat: p.lat, lng: p.lng}));
+    if(!tripPolyline){
+        tripPolyline = new google.maps.Polyline({
+            map,
+            path,
+            strokeColor: '#F4A93B',
+            strokeOpacity: 0.85,
+            strokeWeight: 2.5,
+            clickable: false,
+            zIndex: 4
+        });
+    } else {
+        tripPolyline.setPath(path);
+    }
+}
+
+function startRecTimer(){
+    recTimerInterval = setInterval(() => {
+        if(!recStartTime) return;
+        const elapsed = Date.now() - recStartTime;
+        const hh = Math.floor(elapsed / 3600000);
+        const mm = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2,'0');
+        const ss = String(Math.floor((elapsed % 60000) / 1000)).padStart(2,'0');
+        document.getElementById('recLabel').textContent =
+            hh > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`;
+    }, 1000);
+}
+
+function buildGPX(name){
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="eBoat" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>${name}</name><time>${new Date().toISOString()}</time></metadata>
+  <trk><name>${name}</name><trkseg>
+${tripPoints.map(p => `    <trkpt lat="${p.lat}" lon="${p.lng}"><time>${p.ts}</time><extensions><speed>${p.speed}</speed></extensions></trkpt>`).join('\n')}
+  </trkseg></trk>
+</gpx>`;
+}
+
+function downloadGPX(gpxData, name){
+    const blob = new Blob([gpxData], {type:'application/gpx+xml'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href=url; a.download=name.replace(/ /g,'_')+'.gpx';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ─── Instrument detail overlay ────────────────────────────────────────────────
+function openOverlay(type) {
+    const titles = {
+        speed: 'Speed', heading: 'Heading',
+        wind: 'Wind', weather: 'Weather', tide: 'Tidal Info'
+    };
+    document.getElementById('ov-title').textContent = titles[type] || type;
+    document.getElementById('ov-body').innerHTML = {
+        speed:   renderSpeedOv,
+        heading: renderHeadingOv,
+        wind:    renderWindOv,
+        weather: renderWeatherOv,
+        tide:    renderTideOv
+    }[type]?.() || '';
+    document.getElementById('inst-overlay').classList.add('show');
+}
+
+function closeOverlay() {
+    document.getElementById('inst-overlay').classList.remove('show');
+}
+
+function renderSpeedOv() {
+    const kn = lastSpeed != null ? lastSpeed.toFixed(2) : '—';
+    const mps = lastSpeed != null ? (lastSpeed / 1.94384).toFixed(2) : '—';
+    const kph = lastSpeed != null ? (lastSpeed * 1.852).toFixed(1) : '—';
+    const status = lastSpeed == null ? '—'
+        : lastSpeed < 0.5 ? 'Too slow for reliable heading'
+        : lastSpeed > 5   ? 'Over Medway speed limit (5 kn)'
+        : 'Normal cruising speed';
+    return `<div class="ov-value">${kn}</div>
+<div class="ov-unit">knots (SOG)</div>
+<table class="ov-table" style="margin-top:20px">
+  <tr><td>Knots</td><td>${kn} kn</td></tr>
+  <tr><td>km/h</td><td>${kph} km/h</td></tr>
+  <tr><td>m/s</td><td>${mps} m/s</td></tr>
+  <tr><td>Status</td><td style="color:var(--text)">${status}</td></tr>
+</table>
+<div class="ov-sub" style="margin-top:16px">Speed over ground from GPS.<br>Unreliable below ~0.5 kn.</div>`;
+}
+
+function renderHeadingOv() {
+    const deg = lastHeading != null ? Math.round(lastHeading) : null;
+    const card = deg != null ? degreesToCardinal(deg) : '—';
+    const needle = deg != null ? deg : 0;
+    return `
+<svg class="ov-compass" width="160" height="160" viewBox="0 0 160 160">
+  <circle cx="80" cy="80" r="76" fill="none" stroke="var(--line)" stroke-width="2"/>
+  <!-- Cardinal labels -->
+  <text x="80" y="16" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" fill="var(--text-dim)">N</text>
+  <text x="148" y="84" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" fill="var(--text-dim)">E</text>
+  <text x="80" y="152" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" fill="var(--text-dim)">S</text>
+  <text x="12" y="84" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" fill="var(--text-dim)">W</text>
+  <!-- Tick marks -->
+  ${Array.from({length:36},(_,i)=>{const a=i*10,r=i%9===0?10:i%3===0?6:4,x1=80+68*Math.sin(a*Math.PI/180),y1=80-68*Math.cos(a*Math.PI/180),x2=80+(68-r)*Math.sin(a*Math.PI/180),y2=80-(68-r)*Math.cos(a*Math.PI/180);return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--line)" stroke-width="1.5"/>`;}).join('')}
+  <!-- Needle -->
+  <g transform="rotate(${needle},80,80)">
+    <polygon points="80,24 76,88 80,94 84,88" fill="var(--teal)" opacity="0.9"/>
+    <polygon points="80,136 76,88 80,94 84,88" fill="var(--text-dim)" opacity="0.6"/>
+  </g>
+  <circle cx="80" cy="80" r="5" fill="var(--ink)" stroke="var(--teal)" stroke-width="2"/>
+</svg>
+<div class="ov-value teal" style="font-size:52px">${deg != null ? deg + '°' : '—'}</div>
+<div class="ov-unit">${card} · Course over ground</div>`;
+}
+
+function renderWindOv() {
+    if(!weatherCache) return `<div class="ov-sub">No weather data yet</div>`;
+    const spd = Math.round(weatherCache.wind_speed_10m);
+    const dir = Math.round(weatherCache.wind_direction_10m);
+    const card = degreesToCardinal(dir);
+    const beaufort = spd < 1?'Calm':spd<4?'Light air':spd<7?'Light breeze':spd<11?'Gentle breeze':spd<16?'Moderate breeze':spd<21?'Fresh breeze':spd<27?'Strong breeze':spd<34?'Near gale':'Gale';
+    return `<div class="ov-value">${spd}</div>
+<div class="ov-unit">knots</div>
+<svg width="80" height="80" viewBox="0 0 80 80" style="margin:8px 0">
+  <circle cx="40" cy="40" r="36" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+  <g transform="rotate(${dir},40,40)">
+    <polygon points="40,8 36,48 40,52 44,48" fill="var(--amber)" opacity="0.9"/>
+    <polygon points="40,72 36,48 40,52 44,48" fill="var(--text-dim)" opacity="0.5"/>
+  </g>
+  <circle cx="40" cy="40" r="3" fill="var(--ink)" stroke="var(--amber)" stroke-width="1.5"/>
+</svg>
+<table class="ov-table">
+  <tr><td>Direction</td><td>${card} · ${dir}°</td></tr>
+  <tr><td>Speed</td><td>${spd} kn</td></tr>
+  <tr><td>Beaufort</td><td style="color:var(--text)">${beaufort}</td></tr>
+</table>`;
+}
+
+function renderWeatherOv() {
+    if(!weatherCache) return `<div class="ov-sub">No weather data yet</div>`;
+    const desc = wmoDescription(weatherCache.weather_code);
+    const temp = Math.round(weatherCache.temperature_2m);
+    return `<div class="ov-emoji">${desc.icon}</div>
+<div class="ov-value" style="font-size:52px">${temp}°C</div>
+<div class="ov-unit">${desc.label}</div>
+<table class="ov-table" style="margin-top:20px">
+  <tr><td>Temperature</td><td>${temp}°C</td></tr>
+  <tr><td>Conditions</td><td style="color:var(--text)">${desc.label}</td></tr>
+  <tr><td>Wind</td><td>${Math.round(weatherCache.wind_speed_10m)} kn ${degreesToCardinal(weatherCache.wind_direction_10m)}</td></tr>
+  <tr><td>Source</td><td style="color:var(--text-dim)">Open-Meteo</td></tr>
+</table>`;
+}
+
+function renderTideOv() {
+    if(!tideStation) return `<div class="ov-sub">Waiting for tide data…</div>`;
+    const stationHtml = `<div class="ov-sub" style="margin-bottom:8px">
+        📍 ${tideStation.name}</div>`;
+    if(!tideEvents || !tideEvents.length) return stationHtml + `<div class="ov-sub">No tide events available</div>`;
+    const now = Date.now();
+    const sorted = [...tideEvents]
+        .sort((a,b) => new Date(a.DateTime)-new Date(b.DateTime))
+        .filter(e => new Date(e.DateTime).getTime() > now - 3*3600*1000); // last 3h + future
+    const rows = sorted.slice(0,8).map(e => {
+        const t = new Date(e.DateTime);
+        const isHW = e.EventType === 'HighWater';
+        const isPast = t.getTime() < now;
+        const timeStr = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+        const dateStr = t.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+        const ht = e.Height != null ? e.Height.toFixed(1)+'m' : '';
+        return `<tr class="ov-tide-event ${isHW?'hw':'lw'}" style="${isPast?'opacity:.45':''}">
+            <td>${isHW?'▲ HW':'▽ LW'}</td>
+            <td style="color:var(--text)">${dateStr} ${timeStr}</td>
+            <td>${ht}</td></tr>`;
+    }).join('');
+    return stationHtml + `<table class="ov-table"><tbody>${rows}</tbody></table>
+<div class="ov-sub" style="margin-top:12px">Times are local. Heights in metres.<br>Data: UKHO Admiralty © Crown Copyright.</div>`;
+}
+
+// ─── Auto-refresh weather every 10 min ───────────────────────────────────────
+setInterval(() => {
+    if (lastPos) fetchWeather(lastPos.latitude, lastPos.longitude);
+}, WEATHER_TTL);
+</script>
+
+<!-- Google Maps + Places (same key as route planner) -->
+<script src="/auth.js"></script>
+<script>
+// Load Google Maps dynamically after auth so we can use the user's own
+// API key if they've configured one, otherwise fall back to the server default.
+eBoatReady((user, config) => {
+    // Set AIS key from user config (their own or the server default)
+    AIS_API_KEY = config.aisstream_key || '';
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${config.google_maps_key}&libraries=geometry,places&loading=async&callback=initMap`;
+    s.async = true; s.defer = true;
+    document.head.appendChild(s);
+});
+</script>
+
+</body>
+</html>

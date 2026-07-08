@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="eBoat">
+<meta name="theme-color" content="#0F2436">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<title>eBoat Route Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<!--
+  This stylesheet is loaded non-blocking on purpose. A plain
+  <link rel="stylesheet"> here is render-blocking, and per the HTML spec
+  the parser also holds up execution of any script that comes after it
+  on the page until it finishes loading (in case the script reads computed
+  styles). On a boat, with patchy marina wifi/4G or a DNS/ad-blocker that
+  doesn't resolve fonts.googleapis.com, that stylesheet can stall for a
+  long time or never finish - which silently delays (or fully blocks)
+  initMap() below, so the map, header buttons, and the distance/time/range
+  math never initialise even though nothing is "broken" in the JS itself.
+  Loading it as "print" media and swapping to "all" on load (the standard
+  loadCSS pattern) makes it non-blocking: text renders immediately with
+  the fallback sans-serif font, then swaps to the real font whenever it
+  arrives, without holding up anything else.
+-->
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+
+<style>
+:root{
+    --ink:#0A1929;
+    --panel:#0F2436;
+    --panel-light:#16344A;
+    --line:#27475F;
+    --text:#E7EEF2;
+    --text-dim:#8FA8B8;
+    --amber:#F4A93B;
+    --amber-dim:#7A5A22;
+    --teal:#2FB8A6;
+    --danger:#E5564A;
+    --paper:#F3ECDD;
+    --radius:10px;
+}
+
+*{box-sizing:border-box;}
+
+html, body{
+    height:100%;
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:var(--ink);
+    color:var(--text);
+    overscroll-behavior:none;
+}
+
+/* ---------- TOP BAR ---------- */
+#topbar{
+    position:fixed;
+    top:0; left:0; right:0;
+    z-index:30;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+}
+
+#topbar-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 10px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+}
+#topbar-row::-webkit-scrollbar{ display:none; }
+
+#brand{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.08em;
+    color:var(--text-dim);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
+    margin-right:auto;
+    text-transform:uppercase;
+}
+
+.icon-btn{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex:none;
+    background:var(--panel-light);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:9px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    min-height:40px;
+    white-space:nowrap;
+    transition:background .15s, border-color .15s;
+}
+.icon-btn:hover{ border-color:var(--amber); }
+.icon-btn:active{ background:var(--amber-dim); }
+.icon-btn:disabled{ opacity:.4; cursor:not-allowed; }
+.icon-btn:disabled:hover{ border-color:var(--line); }
+.icon-btn svg{ width:16px; height:16px; flex:none; }
+.icon-btn .label{ display:inline; }
+
+@media (max-width:560px){
+    .icon-btn .label{ display:none; }
+    .icon-btn{ padding:9px; }
+    #brand{ font-size:10px; }
+}
+
+#drawer{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .25s ease;
+    border-top:1px solid var(--line);
+}
+#drawer.open{ max-height:260px; overflow-y:auto; }
+
+#drawer-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    padding:14px;
+}
+
+.field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    font-size:12px;
+    min-width:120px;
+}
+.field label{
+    color:var(--text-dim);
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    font-size:11px;
+}
+.field input[type=number]{
+    background:var(--ink);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:8px;
+    padding:8px 10px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:14px;
+    min-height:38px;
+    width:120px;
+}
+.field input[type=range]{
+    width:160px;
+}
+.field .readout{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--amber);
+    font-size:12px;
+}
+
+/* ---------- ROUTES PANEL ---------- */
+#routesPanel{
+    position:absolute;
+    right:10px;
+    top:65px;
+    width:280px;
+    max-height:0;
+    overflow:hidden;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:0 8px 24px rgba(0,0,0,.4);
+    transition:max-height .2s ease;
+    z-index:5;
+}
+#routesPanel.open{ max-height:320px; overflow-y:auto; }
+#routesPanel .panel-title{
+    padding:10px 12px 4px;
+    font-size:11px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    font-weight:700;
+}
+.route-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px;
+    border-top:1px solid var(--line);
+}
+.route-row .name{
+    flex:1;
+    font-size:13px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.route-row button{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    border-radius:6px;
+    width:30px;
+    height:30px;
+    cursor:pointer;
+    font-size:13px;
+}
+.route-row button.load{ color:var(--teal); border-color:var(--teal); }
+.route-row button.del{ color:var(--danger); border-color:var(--danger); }
+.route-empty{ padding:14px 12px; font-size:12px; color:var(--text-dim); }
+
+/* ---------- MAP ---------- */
+#mapWrap{
+    position:absolute;
+    top:57px;
+    bottom:40px;
+    left:0; right:0;
+    transition:bottom .25s ease, top .25s ease;
+}
+
+#map{
+    position:absolute;
+    inset:0;
+}
+
+/* ---------- LOCATION SEARCH ---------- */
+/* google.maps.places.PlaceAutocompleteElement (the new Places UI widget) is a
+   self-contained custom element with a closed shadow root - it ships its own
+   search icon, input and clear button, and its dropdown can't be reached with
+   normal CSS selectors. Google does officially support a small set of CSS
+   properties applied directly to the host element, which is what we use here.
+   color-scheme:dark also carries through to the dropdown's own internal
+   styling, so we don't end up with a light/dark mismatch. */
+gmp-place-autocomplete#searchInput{
+    position:absolute;
+    top:10px;
+    left:10px;
+    right:10px;
+    max-width:320px;
+    z-index:4;
+    background-color:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    color-scheme:dark;
+}
+
+#hint{
+    position:absolute;
+    left:50%;
+    top:62px;
+    transform:translateX(-50%);
+    background:rgba(15,36,54,.92);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-size:12px;
+    padding:8px 14px;
+    border-radius:20px;
+    pointer-events:none;
+    z-index:4;
+    white-space:nowrap;
+}
+
+/* ---------- HUD ---------- */
+#hud{
+    position:absolute;
+    right:10px;
+    bottom:10px;
+    z-index:5;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 14px;
+    min-width:168px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);
+    font-family:'IBM Plex Mono',monospace;
+}
+#hud .row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    font-size:13px;
+    padding:3px 0;
+    color:var(--text);
+}
+#hud .row .v{ color:var(--amber); font-weight:600; }
+#hud .row.warn .v{ color:var(--danger); }
+#hud .barwrap{
+    margin-top:6px;
+    height:6px;
+    border-radius:4px;
+    background:var(--ink);
+    overflow:hidden;
+}
+#hud .bar{
+    height:100%;
+    background:var(--teal);
+    width:0%;
+    transition:width .2s ease, background .2s ease;
+}
+#hud .bar.over{ background:var(--danger); }
+#hud .status{
+    margin-top:8px;
+    font-size:11px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    font-weight:700;
+    color:var(--teal);
+}
+#hud .status.over{ color:var(--danger); }
+
+/* ---------- LEGS BOTTOM SHEET ---------- */
+#bottom-panel{
+    position:fixed;
+    bottom:0; left:0; right:0;
+    background:var(--panel);
+    border-top:1px solid var(--line);
+    overflow:hidden;
+    max-height:40px;
+    transition:max-height .25s ease;
+    z-index:20;
+}
+#bottom-panel.expanded{ max-height:280px; }
+
+#legs-toggle{
+    width:100%;
+    border:none;
+    background:none;
+    color:var(--text-dim);
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+}
+#legs-toggle svg{ transition:transform .2s ease; }
+#bottom-panel.expanded #legs-toggle svg{ transform:rotate(180deg); }
+
+#legs-container{ overflow-y:auto; max-height:230px; }
+
+table#legs{
+    width:100%;
+    border-collapse:collapse;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+}
+#legs th{
+    text-align:left;
+    color:var(--text-dim);
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    text-transform:uppercase;
+    font-size:10.5px;
+    letter-spacing:.04em;
+    padding:6px 12px;
+    border-bottom:1px solid var(--line);
+}
+#legs td{
+    padding:7px 12px;
+    border-bottom:1px solid var(--line);
+    color:var(--text);
+}
+#legs tbody tr:last-child td{ border-bottom:none; }
+#legs-empty{ padding:14px 12px; font-size:12px; color:var(--text-dim); font-family:'Inter',sans-serif; }
+
+/* ---------- map leg labels ---------- */
+.leg-label{
+    background:rgba(15,36,54,.92);
+    border:1px solid var(--amber-dim);
+    color:var(--amber);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    padding:2px 6px;
+    border-radius:5px;
+    white-space:nowrap;
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+}
+.range-flag-label{
+    background:rgba(229,86,74,.95);
+    color:#fff;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    padding:3px 7px;
+    border-radius:5px;
+    white-space:nowrap;
+    transform:translate(-50%,-130%);
+    pointer-events:none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="topbar">
+  <div id="topbar-row">
+    <span id="brand">⚓ eBoat Route Planner</span>
+
+    <a class="icon-btn" href="/index.html" title="Dashboard" style="text-decoration:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span class="label">Dash</span>
+    </a>
+    <a class="icon-btn" href="/trips.html" title="My Trips" style="text-decoration:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+      <span class="label">Trips</span>
+    </a>
+    <a class="icon-btn" href="/profile.html" title="Profile" style="text-decoration:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="label" id="nav-username">Profile</span>
+    </a>
+    <a class="icon-btn" id="nav-admin-link" href="/admin.html" title="Admin" style="text-decoration:none;display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span class="label">Admin</span>
+    </a>
+    <a class="icon-btn" href="#" onclick="logout();return false" title="Sign out" style="text-decoration:none;color:var(--danger,#E5564A)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span class="label">Out</span>
+    </a>
+
+    <button class="icon-btn" id="btnUndo" title="Undo last waypoint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7M3 12V5m0 7h7"/></svg>
+      <span class="label">Undo</span>
+    </button>
+
+    <button class="icon-btn" id="btnClear" title="Clear route">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+      <span class="label">Clear</span>
+    </button>
+
+    <button class="icon-btn" id="btnSave" title="Save route">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h11l3 3v11H5z"/><path d="M8 5v5h8V5M8 14h8v5H8z"/></svg>
+      <span class="label">Save</span>
+    </button>
+
+    <button class="icon-btn" id="btnRoutes" title="Saved routes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span class="label">Routes</span>
+    </button>
+
+    <button class="icon-btn" id="btnSettings" title="Boat settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 7 4.24l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
+      <span class="label">Boat</span>
+    </button>
+  </div>
+
+  <div id="drawer">
+    <div id="drawer-grid">
+      <div class="field">
+        <label for="batteryWh">Battery (Wh)</label>
+        <input type="number" id="batteryWh" value="3600" min="0">
+      </div>
+      <div class="field">
+        <label for="powerW">Avg power draw (W)</label>
+        <input type="number" id="powerW" value="600" min="0">
+      </div>
+      <div class="field">
+        <label for="defaultSpeed">Cruise speed (kn)</label>
+        <input type="number" id="defaultSpeed" value="4" step="0.1" min="0">
+      </div>
+      <div class="field">
+        <label for="safety">Safety margin</label>
+        <input type="range" id="safety" min="50" max="100" value="80">
+        <span class="readout" id="safetyReadout">80% of battery usable</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="routesPanel">
+  <div class="panel-title">Saved routes</div>
+  <div id="routeList"></div>
+</div>
+
+<div id="mapWrap">
+  <div id="map"></div>
+  <gmp-place-autocomplete id="searchInput" placeholder="Search for a place..."></gmp-place-autocomplete>
+  <div id="hint">Tap the chart to drop a waypoint</div>
+</div>
+
+<div id="hud">
+  <div class="row"><span>Distance</span><span class="v" id="hudDist">0.0 nm</span></div>
+  <div class="row"><span>Time u/way</span><span class="v" id="hudTime">0.0 h</span></div>
+  <div class="row" id="hudRangeRow"><span>Range left</span><span class="v" id="hudRange">— nm</span></div>
+  <div class="barwrap"><div class="bar" id="hudBar"></div></div>
+  <div class="status" id="hudStatus">SET BOAT PARAMETERS</div>
+</div>
+
+<div id="bottom-panel">
+  <button id="legs-toggle">
+    <span>Legs</span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div id="legs-container">
+    <table id="legs">
+      <thead>
+        <tr><th>Leg</th><th>Distance</th><th>Bearing</th><th>ETA</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="legs-empty">Drop at least two waypoints to see leg-by-leg distance and bearing.</div>
+  </div>
+</div>
+
+<script src="/auth.js"></script>
+<script>
+eBoatReady((user, config) => {
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${config.google_maps_key}&libraries=geometry,places&loading=async&callback=initMap`;
+    s.async = true; s.defer = true;
+    document.head.appendChild(s);
+});
+</script>
+
+<script>
+/* ===================================================================
+   STATE
+=================================================================== */
+let map, path, db;
+let markers = [];      // google.maps.Marker[]
+let coords = [];       // google.maps.LatLng[]
+let legLabels = [];    // overlay labels per leg
+let rangeFlag = null;  // overlay for "range limit" point on the route
+let legsExpanded = false;
+let routesOpen = false;
+let settingsOpen = false;
+
+const KNOTS_LABEL = 'kn';
+
+/* ===================================================================
+   MAP-LABEL OVERLAY (small pill anchored to a lat/lng)
+   NOTE: this is assigned inside initMap(), not declared here directly.
+   "class X extends google.maps.OverlayView" evaluates google.maps.OverlayView
+   immediately, at the line it's written — but this script runs synchronously
+   while the page parses, before the async Google Maps script has necessarily
+   finished loading. Declaring it eagerly here throws "google is not defined"
+   and aborts the rest of this script block. Defining it lazily inside
+   initMap() guarantees google already exists by the time it runs.
+=================================================================== */
+let MapLabel;
+function defineMapLabel(){
+    return class extends google.maps.OverlayView {
+        constructor(position, html, className){
+            super();
+            this.position = position;
+            this.html = html;
+            this.className = className;
+            this.div = null;
+        }
+        onAdd(){
+            this.div = document.createElement('div');
+            this.div.className = this.className;
+            this.div.innerHTML = this.html;
+            this.getPanes().overlayLayer.appendChild(this.div);
+        }
+        draw(){
+            if(!this.div) return;
+            const p = this.getProjection().fromLatLngToDivPixel(this.position);
+            if(p){
+                this.div.style.left = p.x + 'px';
+                this.div.style.top = p.y + 'px';
+                this.div.style.position = 'absolute';
+            }
+        }
+        onRemove(){
+            if(this.div){ this.div.parentNode.removeChild(this.div); this.div = null; }
+        }
+        setPosition(pos){ this.position = pos; this.draw(); }
+    };
+}
+
+/* ===================================================================
+   MARKER ICONS
+=================================================================== */
+function fixIcon(color, scale){
+    const s = scale || 22;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}">
+        <circle cx="${s/2}" cy="${s/2}" r="${s/2-3}" fill="none" stroke="${color}" stroke-width="2.5"/>
+        <circle cx="${s/2}" cy="${s/2}" r="2.6" fill="${color}"/>
+    </svg>`;
+    return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(s, s),
+        anchor: new google.maps.Point(s/2, s/2)
+    };
+}
+function flagIcon(){
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
+        <line x1="6" y1="22" x2="6" y2="4" stroke="#E5564A" stroke-width="2.5"/>
+        <path d="M6 4 L20 8 L6 12 Z" fill="#E5564A"/>
+    </svg>`;
+    return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(26, 26),
+        anchor: new google.maps.Point(6, 22)
+    };
+}
+
+/* ===================================================================
+   MAP INIT
+=================================================================== */
+function initMap(){
+    MapLabel = defineMapLabel();
+
+    // Restore saved map position, fall back to Medway/Hadlow area
+    const savedState = loadMapState();
+
+    map = new google.maps.Map(document.getElementById('map'), {
+        center: savedState.center,
+        zoom:   savedState.zoom,
+        disableDefaultUI: true,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        styles: MAP_STYLE
+    });
+
+    // OpenSeaMap nautical overlay (buoys, locks, hazards, marinas etc.)
+    // Tiles are served by the OpenSeaMap project — free, no API key.
+    const seamarkOverlay = new google.maps.ImageMapType({
+        getTileUrl: (coord, zoom) =>
+            `https://tiles.openseamap.org/seamark/${zoom}/${coord.x}/${coord.y}.png`,
+        tileSize: new google.maps.Size(256, 256),
+        minZoom: 8,
+        maxZoom: 18,
+        name: 'OpenSeaMap',
+        opacity: 1
+    });
+    map.overlayMapTypes.push(seamarkOverlay);
+
+    path = new google.maps.Polyline({
+        strokeColor:'#2FB8A6',
+        strokeOpacity:0.9,
+        strokeWeight:3,
+        map,
+        clickable:true
+    });
+
+    map.addListener('click', e => handleMapClick(e.latLng));
+    path.addListener('click', e => handleMapClick(e.latLng));
+
+    // Persist map position whenever the view settles
+    map.addListener('idle', saveMapState);
+
+    updateStats();
+    bindUI();
+    restoreSettings();
+    restoreRoute();     // re-draw any route that was active before leaving
+
+    try {
+        initSearch();
+    } catch (e) {
+        console.error('Location search unavailable (Places library failed):', e);
+        const searchInput = document.getElementById('searchInput');
+        if(searchInput) searchInput.style.display = 'none';
+    }
+
+    try {
+        initDB();
+    } catch (e) {
+        console.error('Saved routes unavailable (IndexedDB failed to open):', e);
+        const btnSave = document.getElementById('btnSave');
+        const btnRoutes = document.getElementById('btnRoutes');
+        if(btnSave) btnSave.disabled = true;
+        if(btnRoutes) btnRoutes.disabled = true;
+    }
+}
+
+// ── Persistent state helpers ──────────────────────────────────────────────────
+
+function saveMapState(){
+    try {
+        const c = map.getCenter();
+        localStorage.setItem('eboat_map_state', JSON.stringify({
+            center: { lat: c.lat(), lng: c.lng() },
+            zoom: map.getZoom()
+        }));
+    } catch(e){}
+}
+
+function loadMapState(){
+    try {
+        const raw = localStorage.getItem('eboat_map_state');
+        if(raw) return JSON.parse(raw);
+    } catch(e){}
+    return { center: { lat:51.19, lng:0.35 }, zoom: 11 }; // Medway default
+}
+
+function saveSettings(){
+    try {
+        localStorage.setItem('eboat_settings', JSON.stringify({
+            batteryWh:   document.getElementById('batteryWh').value,
+            powerW:      document.getElementById('powerW').value,
+            defaultSpeed:document.getElementById('defaultSpeed').value,
+            safety:      document.getElementById('safety').value
+        }));
+    } catch(e){}
+}
+
+function restoreSettings(){
+    try {
+        const raw = localStorage.getItem('eboat_settings');
+        if(!raw) return;
+        const s = JSON.parse(raw);
+        ['batteryWh','powerW','defaultSpeed','safety'].forEach(id => {
+            if(s[id] !== undefined && document.getElementById(id)){
+                document.getElementById(id).value = s[id];
+            }
+        });
+        updateStats(); // refresh HUD with restored values
+    } catch(e){}
+}
+
+function restoreRoute(){
+    try {
+        const raw = localStorage.getItem(routeKey());
+        if(!raw) return;
+        const points = JSON.parse(raw);
+        if(!points || points.length < 1) return;
+        // Re-add each point silently (addPoint handles markers + path)
+        points.forEach(p => {
+            const latLng = new google.maps.LatLng(p.lat, p.lng);
+            const color = coords.length === 0 ? '#2FB8A6' : '#F4A93B';
+            const m = new google.maps.Marker({
+                position: latLng,
+                map,
+                icon: fixIcon(color),
+                draggable: true,
+                zIndex: 10
+            });
+            m.addListener('dragend', () => {
+                const i = markers.indexOf(m);
+                coords[i] = m.getPosition();
+                path.setPath(coords);
+                recolorEndpoints();
+                syncRouteToStorage();
+                updateStats();
+            });
+            m.addListener('rightclick', () => removeMarker(m));
+            markers.push(m);
+            coords.push(latLng);
+        });
+        path.setPath(coords);
+        recolorEndpoints();
+        updateStats();
+    } catch(e){
+        console.warn('Could not restore route:', e);
+    }
+}
+
+function initSearch(){
+    const placeAutocomplete = document.getElementById('searchInput');
+
+    // Bias predictions toward whatever the map is currently showing, and
+    // keep that in sync as the user pans/zooms around.
+    placeAutocomplete.locationBias = map.getBounds();
+    map.addListener('bounds_changed', () => {
+        placeAutocomplete.locationBias = map.getBounds();
+    });
+
+    placeAutocomplete.addEventListener('gmp-select', async ({placePrediction}) => {
+        const place = placePrediction.toPlace();
+        await place.fetchFields({fields: ['location', 'viewport']});
+        if(place.viewport){
+            map.fitBounds(place.viewport);
+        } else if(place.location){
+            map.setCenter(place.location);
+            map.setZoom(15);
+        }
+    });
+
+    // Stop a tap/click on the search box itself from falling through to the
+    // map's click handler underneath and adding an unwanted waypoint.
+    placeAutocomplete.addEventListener('click', e => e.stopPropagation());
+}
+
+/* ===================================================================
+   POINT EDITING
+   - click empty water -> append point at end
+   - click on the plotted line -> insert a point at the nearest leg
+   - drag a waypoint -> reposition it
+   - right-click a waypoint -> delete it
+=================================================================== */
+function handleMapClick(latLng){
+    if(coords.length < 2){
+        addPoint(latLng, coords.length);
+        return;
+    }
+    const insertIndex = nearestLegInsertIndex(latLng);
+    addPoint(latLng, insertIndex);
+}
+
+// Find which leg the click is closest to, so clicking ON the line inserts
+// a waypoint in the right place rather than always appending at the end.
+function nearestLegInsertIndex(latLng){
+    let best = coords.length; // default: append
+    let bestDist = Infinity;
+    for(let i = 0; i < coords.length - 1; i++){
+        const d = pointToSegmentMeters(latLng, coords[i], coords[i+1]);
+        if(d < bestDist){ bestDist = d; best = i + 1; }
+    }
+    // Only treat as an "insert on segment" if the click is reasonably close
+    // to that segment (within ~6% of the segment's own length, min 40m).
+    if(best < coords.length){
+        const segLen = google.maps.geometry.spherical.computeDistanceBetween(coords[best-1], coords[best]);
+        const tolerance = Math.max(40, segLen * 0.06);
+        if(bestDist > tolerance) return coords.length; // not close enough, append instead
+    }
+    return best;
+}
+
+function pointToSegmentMeters(p, a, b){
+    // Local flat-earth approximation - fine for the short distances a small
+    // boat plots.
+    const lat0 = (a.lat() + b.lat()) / 2;
+    const mPerDegLat = 111320;
+    const mPerDegLng = 111320 * Math.cos(lat0 * Math.PI/180);
+    const px = (p.lng()-a.lng())*mPerDegLng, py=(p.lat()-a.lat())*mPerDegLat;
+    const bx = (b.lng()-a.lng())*mPerDegLng, by=(b.lat()-a.lat())*mPerDegLat;
+    const lenSq = bx*bx + by*by;
+    let t = lenSq > 0 ? (px*bx + py*by) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const dx = px - bx*t, dy = py - by*t;
+    return Math.sqrt(dx*dx + dy*dy);
+}
+
+function addPoint(latLng, index){
+    const color = index === 0 ? '#2FB8A6' : '#F4A93B';
+    const m = new google.maps.Marker({
+        position: latLng,
+        map,
+        icon: fixIcon(color),
+        draggable: true,
+        zIndex: 10
+    });
+    m.addListener('dragend', () => {
+        const i = markers.indexOf(m);
+        coords[i] = m.getPosition();
+        path.setPath(coords);
+        recolorEndpoints();
+        updateStats();
+    });
+    m.addListener('rightclick', () => removeMarker(m));
+    markers.splice(index, 0, m);
+    coords.splice(index, 0, latLng);
+    path.setPath(coords);
+    recolorEndpoints();
+    syncRouteToStorage();
+    updateStats();
+}
+
+function recolorEndpoints(){
+    markers.forEach((m, i) => m.setIcon(fixIcon(i === 0 ? '#2FB8A6' : '#F4A93B')));
+}
+
+function removeMarker(m){
+    const i = markers.indexOf(m);
+    if(i < 0) return;
+    m.setMap(null);
+    markers.splice(i, 1);
+    coords.splice(i, 1);
+    path.setPath(coords);
+    recolorEndpoints();
+    syncRouteToStorage();
+    updateStats();
+}
+
+function undoLastPoint(){
+    if(markers.length) removeMarker(markers[markers.length - 1]);
+}
+
+function clearRoute(){
+    markers.forEach(m => m.setMap(null));
+    markers = []; coords = [];
+    path.setPath([]);
+    syncRouteToStorage();
+    updateStats();
+}
+
+/* ===================================================================
+   CALCS
+=================================================================== */
+function bearing(a, b){
+    const phi1=a.lat()*Math.PI/180, phi2=b.lat()*Math.PI/180;
+    const dLambda=(b.lng()-a.lng())*Math.PI/180;
+    return (Math.atan2(
+        Math.sin(dLambda)*Math.cos(phi2),
+        Math.cos(phi1)*Math.sin(phi2)-Math.sin(phi1)*Math.cos(phi2)*Math.cos(dLambda)
+    ) * 180/Math.PI + 360) % 360;
+}
+
+function clearLegLabels(){
+    legLabels.forEach(l => l.setMap(null));
+    legLabels = [];
+}
+
+function clearRangeFlag(){
+    if(rangeFlag){
+        rangeFlag.marker.setMap(null);
+        rangeFlag.label.setMap(null);
+        rangeFlag = null;
+    }
+}
+
+// Per-user localStorage key — prevents routes leaking between accounts
+// on the same browser. window.__user is set by auth.js before Maps loads.
+function routeKey(){
+    return 'eboat_route_' + (window.__user ? window.__user.id : '0');
+}
+
+// ── Route sharing with Dashboard ─────────────────────────────────────────────
+// Writes the current route to localStorage so dashboard.html can display it
+// in view-only mode. Both pages share the same origin, so localStorage is the
+// simplest zero-overhead bridge — no server, no API, no polling needed.
+function syncRouteToStorage(){
+    try {
+        if(coords.length === 0){
+            localStorage.removeItem(routeKey());
+        } else {
+            const data = coords.map(c => ({ lat: c.lat(), lng: c.lng() }));
+            localStorage.setItem(routeKey(), JSON.stringify(data));
+        }
+    } catch(e){
+        // localStorage unavailable (private browsing, quota) — silent fail,
+        // not worth breaking the route planner over a dashboard display feature.
+        console.warn('Could not sync route to storage:', e);
+    }
+}
+
+function updateStats(){
+    document.getElementById('hint').style.display = coords.length ? 'none' : 'block';
+
+    const tbody = document.querySelector('#legs tbody');
+    tbody.innerHTML = '';
+    clearLegLabels();
+    document.getElementById('legs-empty').style.display = coords.length < 2 ? 'block' : 'none';
+
+    const speed = Number(document.getElementById('defaultSpeed').value) || 0;
+
+    let totalNm = 0;
+    for(let i = 1; i < coords.length; i++){
+        const meters = google.maps.geometry.spherical.computeDistanceBetween(coords[i-1], coords[i]);
+        const nm = meters / 1852;
+        totalNm += nm;
+
+        const row = tbody.insertRow();
+        const etaH = speed > 0 ? totalNm/speed : 0;
+        row.innerHTML = `<td>${i}</td><td>${nm.toFixed(2)} nm</td><td>${bearing(coords[i-1],coords[i]).toFixed(0)}\u00b0</td><td>${speed>0 ? etaH.toFixed(2)+' h' : '—'}</td>`;
+
+        const mid = google.maps.geometry.spherical.interpolate(coords[i-1], coords[i], 0.5);
+        const label = new MapLabel(mid, `${nm.toFixed(1)} nm`, 'leg-label');
+        label.setMap(map);
+        legLabels.push(label);
+    }
+
+    const totalHours = speed > 0 ? totalNm/speed : 0;
+
+    const batteryWh = Number(document.getElementById('batteryWh').value);
+    const powerW = Number(document.getElementById('powerW').value);
+    const safety = Number(document.getElementById('safety').value) / 100;
+    document.getElementById('safetyReadout').textContent = Math.round(safety*100) + '% of battery usable';
+
+    document.getElementById('hudDist').textContent = totalNm.toFixed(1) + ' nm';
+    document.getElementById('hudTime').textContent = speed > 0 ? totalHours.toFixed(2) + ' h' : '—';
+
+    clearRangeFlag();
+
+    const haveParams = batteryWh > 0 && powerW > 0 && speed > 0;
+    const statusEl = document.getElementById('hudStatus');
+    const rangeRow = document.getElementById('hudRangeRow');
+    const bar = document.getElementById('hudBar');
+
+    if(!haveParams){
+        document.getElementById('hudRange').textContent = '— nm';
+        bar.style.width = '0%';
+        bar.classList.remove('over');
+        statusEl.textContent = 'SET BOAT PARAMETERS';
+        statusEl.classList.remove('over');
+        rangeRow.classList.remove('warn');
+        return;
+    }
+
+    const usableWh = batteryWh * safety;
+    const enduranceH = usableWh / powerW;
+    const rangeNm = enduranceH * speed;
+    const remainingNm = rangeNm - totalNm;
+    const pct = rangeNm > 0 ? Math.min(150, (totalNm/rangeNm)*100) : 0;
+    const exceeds = totalNm > rangeNm;
+
+    document.getElementById('hudRange').textContent = (exceeds ? '−' : '') + Math.abs(remainingNm).toFixed(1) + ' nm';
+    rangeRow.classList.toggle('warn', exceeds);
+    bar.style.width = Math.min(100, pct) + '%';
+    bar.classList.toggle('over', exceeds);
+
+    if(coords.length < 2){
+        statusEl.textContent = 'PLOT A ROUTE TO CHECK RANGE';
+        statusEl.classList.remove('over');
+    } else if(exceeds){
+        statusEl.textContent = '\u26a0 ROUTE EXCEEDS RANGE';
+        statusEl.classList.add('over');
+        plotRangeFlag(rangeNm);
+    } else {
+        statusEl.textContent = '\u2713 WITHIN RANGE';
+        statusEl.classList.remove('over');
+    }
+}
+
+// Drop a flag on the chart at the point along the route where the battery
+// would run out, so it's visible exactly where the boat would need to turn
+// back or stop to recharge.
+function plotRangeFlag(rangeNm){
+    let cum = 0;
+    for(let i = 1; i < coords.length; i++){
+        const legNm = google.maps.geometry.spherical.computeDistanceBetween(coords[i-1], coords[i]) / 1852;
+        if(cum + legNm >= rangeNm){
+            const frac = legNm > 0 ? (rangeNm - cum) / legNm : 0;
+            const pos = google.maps.geometry.spherical.interpolate(coords[i-1], coords[i], Math.max(0,Math.min(1,frac)));
+            const marker = new google.maps.Marker({ position: pos, map, icon: flagIcon(), zIndex: 20, clickable:false });
+            const label = new MapLabel(pos, 'Range limit', 'range-flag-label');
+            label.setMap(map);
+            rangeFlag = { marker, label };
+            return;
+        }
+        cum += legNm;
+    }
+}
+
+/* ===================================================================
+   SAVE / LOAD (IndexedDB)
+=================================================================== */
+function initDB(){
+    // Routes are now stored server-side per user — just load the list
+    refreshRouteList();
+}
+
+async function saveRoute(){
+    if(!coords.length) return;
+    const name = prompt('Name this route:', 'Route ' + new Date().toLocaleDateString());
+    if(name === null) return;
+    const r = await fetch('/api/routes', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+            name: name || ('Route ' + new Date().toLocaleString()),
+            coords: coords.map(p => ({lat:p.lat(), lng:p.lng()}))
+        })
+    });
+    if(r.ok) refreshRouteList();
+    else alert('Could not save route — please try again');
+}
+
+async function refreshRouteList(){
+    const list = document.getElementById('routeList');
+    list.innerHTML = '';
+    try {
+        const r = await fetch('/api/routes', {credentials:'include'});
+        const routes = await r.json();
+        if(!routes.length){
+            list.innerHTML = '<div class="route-empty">No saved routes yet.</div>';
+            return;
+        }
+        routes.forEach(route => {
+            const row = document.createElement('div');
+            row.className = 'route-row';
+            row.innerHTML = `<span class="name">${escapeHtml(route.name)}</span>
+                <button class="load" title="Load">\u2193</button>
+                <button class="del" title="Delete">\u00d7</button>`;
+            row.querySelector('.load').onclick = () => loadRoute(route.id);
+            row.querySelector('.del').onclick  = () => deleteRoute(route.id);
+            list.appendChild(row);
+        });
+    } catch(e) {
+        list.innerHTML = '<div class="route-empty">Could not load routes</div>';
+    }
+}
+
+async function loadRoute(id){
+    const r = await fetch(`/api/routes/${id}`, {credentials:'include'});
+    if(!r.ok) return;
+    const route = await r.json();
+    clearRoute();
+    route.coords.forEach((p,i) => addPoint(new google.maps.LatLng(p.lat, p.lng), i));
+    toggleRoutesPanel(false);
+    fitToRoute();
+}
+
+async function deleteRoute(id){
+    await fetch(`/api/routes/${id}`, {method:'DELETE', credentials:'include'});
+    refreshRouteList();
+}
+
+function fitToRoute(){
+    if(coords.length < 2) return;
+    const bounds = new google.maps.LatLngBounds();
+    coords.forEach(c => bounds.extend(c));
+    map.fitBounds(bounds, 60);
+}
+
+function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ===================================================================
+   UI WIRING
+=================================================================== */
+function toggleSettings(force){
+    settingsOpen = force !== undefined ? force : !settingsOpen;
+    document.getElementById('drawer').classList.toggle('open', settingsOpen);
+}
+function toggleRoutesPanel(force){
+    routesOpen = force !== undefined ? force : !routesOpen;
+    document.getElementById('routesPanel').classList.toggle('open', routesOpen);
+    if(routesOpen) refreshRouteList();
+}
+function toggleLegs(){
+    legsExpanded = !legsExpanded;
+    document.getElementById('bottom-panel').classList.toggle('expanded', legsExpanded);
+    document.getElementById('mapWrap').style.bottom = legsExpanded ? '280px' : '40px';
+}
+
+function bindUI(){
+    document.getElementById('btnUndo').addEventListener('click', undoLastPoint);
+    document.getElementById('btnClear').addEventListener('click', () => {
+        if(!coords.length || confirm('Clear the current route?')) clearRoute();
+    });
+    document.getElementById('btnSave').addEventListener('click', saveRoute);
+    document.getElementById('btnRoutes').addEventListener('click', () => toggleRoutesPanel());
+    document.getElementById('btnSettings').addEventListener('click', () => toggleSettings());
+    document.getElementById('legs-toggle').addEventListener('click', toggleLegs);
+
+    ['batteryWh','powerW','defaultSpeed','safety'].forEach(id =>
+        document.getElementById(id).addEventListener('input', () => {
+            updateStats();
+            saveSettings();
+        })
+    );
+}
+
+/* ===================================================================
+   MAP STYLE — dark chart-table look
+=================================================================== */
+const MAP_STYLE = [
+    {elementType:'geometry', stylers:[{color:'#0c2230'}]},
+    {elementType:'labels.text.fill', stylers:[{color:'#8FA8B8'}]},
+    {elementType:'labels.text.stroke', stylers:[{color:'#0A1929'}]},
+    {featureType:'water', elementType:'geometry', stylers:[{color:'#0A1929'}]},
+    {featureType:'landscape', elementType:'geometry', stylers:[{color:'#102A3D'}]},
+    {featureType:'poi', stylers:[{visibility:'off'}]},
+    {featureType:'transit', stylers:[{visibility:'off'}]},
+    {featureType:'road', elementType:'geometry', stylers:[{color:'#1B3E54'}]},
+    {featureType:'road', elementType:'labels', stylers:[{visibility:'off'}]},
+    {featureType:'administrative', elementType:'geometry.stroke', stylers:[{color:'#27475F'}]}
+];
+</script>
+
+</body>
+</html>

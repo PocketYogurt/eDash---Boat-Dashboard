@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>eBoat Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+
+<style>
+:root{
+    --ink:#0A1929;
+    --panel:#0F2436;
+    --panel-light:#16344A;
+    --line:#27475F;
+    --text:#E7EEF2;
+    --text-dim:#8FA8B8;
+    --amber:#F4A93B;
+    --amber-dim:#7A5A22;
+    --teal:#2FB8A6;
+    --danger:#E5564A;
+    --green:#4CAF50;
+    --radius:10px;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+html, body{
+    height:100%;
+    font-family:'Inter',sans-serif;
+    background:var(--ink);
+    color:var(--text);
+    overscroll-behavior:none;
+    overflow:hidden;
+}
+
+/* ---------- NAV TABS ---------- */
+#nav{
+    display:flex;
+    align-items:center;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:0 12px;
+    height:48px;
+    gap:4px;
+    flex:none;
+}
+#nav-brand{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    margin-right:auto;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
+}
+.nav-tab{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:6px 12px;
+    border-radius:var(--radius);
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-dim);
+    text-decoration:none;
+    border:1px solid transparent;
+    transition:all .15s;
+    white-space:nowrap;
+    flex:none;
+}
+.nav-tab:hover{ background:var(--panel-light); color:var(--text); }
+.nav-tab.active{
+    background:var(--panel-light);
+    border-color:var(--line);
+    color:var(--amber);
+}
+.nav-tab svg{ width:14px; height:14px; }
+
+/* ---------- LAYOUT ---------- */
+#app{
+    display:flex;
+    flex-direction:column;
+    height:100%;
+}
+
+/* Main content area below nav */
+#content{
+    display:flex;
+    flex:1;
+    min-height:0;
+}
+
+/* ---------- INSTRUMENT PANEL (left column) ---------- */
+#instruments{
+    display:flex;
+    flex-direction:column;
+    width:130px;
+    flex:none;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    overflow:hidden;
+}
+
+.inst{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:10px 8px;
+    border-bottom:1px solid var(--line);
+    min-height:0;
+    gap:2px;
+}
+.inst:last-child{ border-bottom:none; }
+
+.inst-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    white-space:nowrap;
+}
+.inst-value{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:26px;
+    font-weight:700;
+    color:var(--amber);
+    line-height:1;
+    white-space:nowrap;
+}
+.inst-unit{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    color:var(--text-dim);
+}
+.inst-sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    color:var(--text-dim);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:100%;
+    text-align:center;
+}
+.inst-value.green{ color:var(--green); }
+.inst-value.danger{ color:var(--danger); }
+.inst-value.teal{ color:var(--teal); }
+.inst-value.dim{ color:var(--text-dim); font-size:18px; }
+
+/* ---------- MAP (right, fills remaining space) ---------- */
+#map-wrap{
+    flex:1;
+    position:relative;
+    min-width:0;
+}
+#map{ position:absolute; inset:0; }
+
+/* ---------- GPS LOST OVERLAY ---------- */
+#gps-overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(10,25,41,.85);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    z-index:10;
+    font-family:'IBM Plex Mono',monospace;
+}
+#gps-overlay svg{ width:48px; height:48px; color:var(--text-dim); }
+#gps-overlay p{ color:var(--text-dim); font-size:13px; }
+#gps-overlay.hidden{ display:none; }
+
+/* ---------- TIDE BAR ---------- */
+#tide-bar-wrap{
+    width:80%;
+    height:4px;
+    background:var(--line);
+    border-radius:2px;
+    overflow:hidden;
+    margin-top:2px;
+}
+#tide-bar{
+    height:100%;
+    background:var(--teal);
+    border-radius:2px;
+    transition:width .5s ease;
+}
+
+/* ---------- PORTRAIT FALLBACK ----------
+   On very narrow screens (portrait phone) flip back to
+   a bottom strip so nothing gets too squeezed.           */
+@media (max-width: 480px) and (orientation: portrait){
+    #content{ flex-direction:column; }
+    #instruments{
+        width:100%;
+        flex-direction:row;
+        border-right:none;
+        border-top:1px solid var(--line);
+        order:2;
+        height:90px;
+    }
+    .inst{
+        border-bottom:none;
+        border-right:1px solid var(--line);
+        padding:6px 4px;
+    }
+    .inst:last-child{ border-right:none; }
+    .inst-value{ font-size:18px; }
+    #map-wrap{ order:1; flex:1; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Navigation tabs (shared with route planner) -->
+  <nav id="nav">
+    <span id="nav-brand">⚓ eBoat</span>
+    <a class="nav-tab active" href="/dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+      Dashboard
+    </a>
+    <a class="nav-tab" href="/index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Route Planner
+    </a>
+  </nav>
+
+  <!-- Main content: instruments left, map right -->
+  <div id="content">
+
+    <!-- Instrument panel (left column) -->
+    <div id="instruments">
+      <!-- Speed -->
+      <div class="inst">
+        <div class="inst-label">Speed</div>
+        <div class="inst-value" id="inst-speed">—</div>
+        <div class="inst-unit">knots</div>
+      </div>
+
+      <!-- Heading -->
+      <div class="inst">
+        <div class="inst-label">Heading</div>
+        <div class="inst-value teal" id="inst-heading">—</div>
+        <div class="inst-unit" id="inst-heading-cardinal">—</div>
+      </div>
+
+      <!-- Wind -->
+      <div class="inst">
+        <div class="inst-label">Wind</div>
+        <div class="inst-value" id="inst-wind">—</div>
+        <div class="inst-unit">knots</div>
+        <div class="inst-sub" id="inst-wind-dir">—</div>
+      </div>
+
+      <!-- Weather -->
+      <div class="inst">
+        <div class="inst-label">Weather</div>
+        <div class="inst-value dim" id="inst-weather">—</div>
+        <div class="inst-sub" id="inst-temp">—</div>
+      </div>
+
+      <!-- Tide -->
+      <div class="inst">
+        <div class="inst-label">Tide</div>
+        <div class="inst-value teal" id="inst-tide">—</div>
+        <div class="inst-sub" id="inst-tide-next">—</div>
+        <div id="tide-bar-wrap"><div id="tide-bar" style="width:50%"></div></div>
+      </div>
+    </div>
+
+    <!-- Live map (right, fills remaining space) -->
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div id="gps-overlay">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          <path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+        </svg>
+        <p>Acquiring GPS fix…</p>
+      </div>
+    </div>
+
+  </div><!-- /#content -->
+</div>
+
+<script>
+// ── Map style + icon helpers (identical to route planner for consistency) ─────
+function fixIcon(color, scale){
+    const s = scale || 22;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}">
+        <circle cx="${s/2}" cy="${s/2}" r="${s/2-3}" fill="none" stroke="${color}" stroke-width="2.5"/>
+        <circle cx="${s/2}" cy="${s/2}" r="2.6" fill="${color}"/>
+    </svg>`;
+    return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(s, s),
+        anchor: new google.maps.Point(s/2, s/2)
+    };
+}
+
+const MAP_STYLE = [
+    {elementType:'geometry', stylers:[{color:'#0c2230'}]},
+    {elementType:'labels.text.fill', stylers:[{color:'#8FA8B8'}]},
+    {elementType:'labels.text.stroke', stylers:[{color:'#0A1929'}]},
+    {featureType:'water', elementType:'geometry', stylers:[{color:'#0A1929'}]},
+    {featureType:'landscape', elementType:'geometry', stylers:[{color:'#102A3D'}]},
+    {featureType:'poi', stylers:[{visibility:'off'}]},
+    {featureType:'transit', stylers:[{visibility:'off'}]},
+    {featureType:'road', elementType:'geometry', stylers:[{color:'#1B3E54'}]},
+    {featureType:'road', elementType:'labels', stylers:[{visibility:'off'}]},
+    {featureType:'administrative', elementType:'geometry.stroke', stylers:[{color:'#27475F'}]}
+];
+
+// ── Planned Route (view-only, synced from Route Planner via localStorage) ────
+let routePolyline = null;
+let routeMarkers  = [];
+
+function loadPlannedRoute(){
+    try {
+        const raw = localStorage.getItem('eboat_active_route');
+        drawPlannedRoute(raw ? JSON.parse(raw) : []);
+    } catch(e){
+        console.warn('Could not read planned route:', e);
+    }
+}
+
+function drawPlannedRoute(points){
+    // Clear existing
+    routeMarkers.forEach(m => m.setMap(null));
+    routeMarkers = [];
+    if(routePolyline){ routePolyline.setMap(null); routePolyline = null; }
+
+    if(!points || points.length < 2) return;
+
+    // Draw the route line — same teal colour as the route planner
+    routePolyline = new google.maps.Polyline({
+        map,
+        path: points.map(p => new google.maps.LatLng(p.lat, p.lng)),
+        strokeColor: '#2FB8A6',
+        strokeOpacity: 0.85,
+        strokeWeight: 3,
+        clickable: false,   // view-only — no interaction
+        zIndex: 5
+    });
+
+    // Start marker — teal, same as route planner's first waypoint
+    routeMarkers.push(new google.maps.Marker({
+        map,
+        position: points[0],
+        icon: fixIcon('#2FB8A6'),
+        title: 'Start',
+        clickable: false,
+        zIndex: 6
+    }));
+
+    // End marker — amber, same as route planner's subsequent waypoints
+    routeMarkers.push(new google.maps.Marker({
+        map,
+        position: points[points.length - 1],
+        icon: fixIcon('#F4A93B'),
+        title: 'End',
+        clickable: false,
+        zIndex: 6
+    }));
+}
+
+// Poll for route changes every 5 seconds — catches edits made in the
+// Route Planner tab without needing any cross-tab messaging setup.
+function startRoutePoll(){
+    loadPlannedRoute();
+    setInterval(loadPlannedRoute, 5000);
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let map, boatMarker, accuracyCircle;
+let watchId = null;
+let lastPos = null;
+let weatherCache = null;
+let weatherFetchedAt = 0;
+
+const WEATHER_TTL = 10 * 60 * 1000; // refresh weather every 10 min
+
+// ─── Google Maps init (callback) ──────────────────────────────────────────────
+function initMap() {
+    // Restore last known map position
+    const savedState = loadMapState();
+
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: savedState.zoom,
+        center: savedState.center,
+        mapTypeId: 'roadmap',
+        disableDefaultUI: true,
+        gestureHandling: 'greedy',
+        styles: MAP_STYLE
+    });
+
+    // OpenSeaMap nautical overlay — same as route planner
+    const seamarkOverlay = new google.maps.ImageMapType({
+        getTileUrl: (coord, zoom) =>
+            `https://tiles.openseamap.org/seamark/${zoom}/${coord.x}/${coord.y}.png`,
+        tileSize: new google.maps.Size(256, 256),
+        minZoom: 8,
+        maxZoom: 18,
+        name: 'OpenSeaMap',
+        opacity: 1
+    });
+    map.overlayMapTypes.push(seamarkOverlay);
+
+    // Persist map state when view settles
+    map.addListener('idle', saveMapState);
+
+    startGPS();
+    startRoutePoll();
+    fetchWeather(savedState.center.lat, savedState.center.lng);
+}
+
+function saveMapState(){
+    try {
+        const c = map.getCenter();
+        localStorage.setItem('eboat_map_state', JSON.stringify({
+            center: { lat: c.lat(), lng: c.lng() },
+            zoom: map.getZoom()
+        }));
+    } catch(e){}
+}
+
+function loadMapState(){
+    try {
+        const raw = localStorage.getItem('eboat_map_state');
+        if(raw) return JSON.parse(raw);
+    } catch(e){}
+    return { center: { lat:51.19, lng:0.35 }, zoom: 13 }; // Medway/Hadlow default
+}
+
+// ─── GPS / Geolocation ────────────────────────────────────────────────────────
+function startGPS() {
+    if (!navigator.geolocation) {
+        setOverlay('GPS not available in this browser.');
+        return;
+    }
+
+    watchId = navigator.geolocation.watchPosition(onPosition, onGPSError, {
+        enableHighAccuracy: true,
+        maximumAge: 2000,
+        timeout: 10000
+    });
+}
+
+function onPosition(pos) {
+    const { latitude: lat, longitude: lng, speed, heading, accuracy } = pos.coords;
+    lastPos = pos.coords;
+
+    // Hide the "acquiring GPS" overlay
+    document.getElementById('gps-overlay').classList.add('hidden');
+
+    // Move / create boat marker
+    const latlng = { lat, lng };
+    if (!boatMarker) {
+        boatMarker = new google.maps.Marker({
+            map,
+            position: latlng,
+            icon: fixIcon('#2FB8A6', 28),
+            title: 'Your position',
+            zIndex: 10
+        });
+        map.setCenter(latlng);
+    } else {
+        boatMarker.setPosition(latlng);
+        boatMarker.setIcon(fixIcon('#2FB8A6', 28));
+        const bounds = map.getBounds();
+        if (bounds && !bounds.contains(latlng)) map.panTo(latlng);
+    }
+
+    // Accuracy circle
+    if (!accuracyCircle) {
+        accuracyCircle = new google.maps.Circle({
+            map,
+            center: latlng,
+            radius: accuracy,
+            fillColor: '#2FB8A6',
+            fillOpacity: 0.12,
+            strokeColor: '#2FB8A6',
+            strokeOpacity: 0.4,
+            strokeWeight: 1
+        });
+    } else {
+        accuracyCircle.setCenter(latlng);
+        accuracyCircle.setRadius(accuracy);
+    }
+
+    // Update instruments
+    updateSpeedInst(speed, accuracy);
+    updateHeadingInst(heading);
+    setAccuracyDot(accuracy);
+
+    // Refresh weather if we've moved meaningfully or cache is stale
+    if (Date.now() - weatherFetchedAt > WEATHER_TTL) {
+        fetchWeather(lat, lng);
+    }
+}
+
+function onGPSError(err) {
+    setOverlay('GPS error: ' + err.message);
+}
+
+function setOverlay(msg) {
+    const el = document.getElementById('gps-overlay');
+    el.querySelector('p').textContent = msg;
+    el.classList.remove('hidden');
+}
+
+// ─── Instrument: Speed ────────────────────────────────────────────────────────
+function updateSpeedInst(speedMps, accuracy) {
+    const el = document.getElementById('inst-speed');
+    if (speedMps === null || speedMps === undefined) {
+        el.textContent = '—';
+        el.className = 'inst-value';
+        return;
+    }
+    const knots = speedMps * 1.94384;
+    el.textContent = knots.toFixed(1);
+    // Colour-code: amber = normal, green = good cruise, danger = over speed limit (5kn Medway)
+    el.className = 'inst-value ' + (knots > 5 ? 'danger' : knots > 1 ? '' : 'dim');
+}
+
+// ─── Instrument: Heading ──────────────────────────────────────────────────────
+function updateHeadingInst(degrees) {
+    const valEl = document.getElementById('inst-heading');
+    const cardEl = document.getElementById('inst-heading-cardinal');
+    if (degrees === null || degrees === undefined) {
+        valEl.textContent = '—';
+        cardEl.textContent = '—';
+        return;
+    }
+    valEl.textContent = Math.round(degrees) + '°';
+    cardEl.textContent = degreesToCardinal(degrees);
+}
+
+function degreesToCardinal(deg) {
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+}
+
+// ─── Accuracy dot ─────────────────────────────────────────────────────────────
+function setAccuracyDot(accuracy) {
+    // No visible dot in this design - accuracy is shown via the circle on the map
+    // But we do set the GPS overlay hint
+}
+
+// ─── Weather (Open-Meteo — free, no API key) ──────────────────────────────────
+async function fetchWeather(lat, lng) {
+    weatherFetchedAt = Date.now();
+    try {
+        // Current conditions + hourly wind
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+            + `&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m`
+            + `&wind_speed_unit=kn`
+            + `&timezone=auto`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const c = data.current;
+        weatherCache = c;
+        updateWeatherInst(c);
+    } catch(e) {
+        console.warn('Weather fetch failed:', e);
+    }
+}
+
+function updateWeatherInst(c) {
+    document.getElementById('inst-wind').textContent = Math.round(c.wind_speed_10m);
+    document.getElementById('inst-wind-dir').textContent =
+        degreesToCardinal(c.wind_direction_10m) + ' ' + Math.round(c.wind_direction_10m) + '°';
+
+    const desc = wmoDescription(c.weather_code);
+    const tempEl = document.getElementById('inst-temp');
+    const weatherEl = document.getElementById('inst-weather');
+    weatherEl.textContent = desc.icon;
+    weatherEl.className = 'inst-value';
+    weatherEl.style.fontSize = '28px';
+    tempEl.textContent = Math.round(c.temperature_2m) + '°C · ' + desc.label;
+}
+
+// WMO Weather Code descriptions (subset relevant to UK boating)
+function wmoDescription(code) {
+    const map = {
+        0:  { icon:'☀️', label:'Clear'       },
+        1:  { icon:'🌤️', label:'Mostly clear' },
+        2:  { icon:'⛅', label:'Part cloudy'  },
+        3:  { icon:'☁️', label:'Overcast'     },
+        45: { icon:'🌫️', label:'Fog'          },
+        48: { icon:'🌫️', label:'Icy fog'      },
+        51: { icon:'🌦️', label:'Light drizzle'},
+        53: { icon:'🌦️', label:'Drizzle'      },
+        55: { icon:'🌦️', label:'Heavy drizzle'},
+        61: { icon:'🌧️', label:'Light rain'   },
+        63: { icon:'🌧️', label:'Rain'         },
+        65: { icon:'🌧️', label:'Heavy rain'   },
+        71: { icon:'🌨️', label:'Light snow'   },
+        73: { icon:'🌨️', label:'Snow'         },
+        75: { icon:'🌨️', label:'Heavy snow'   },
+        80: { icon:'🌦️', label:'Showers'      },
+        81: { icon:'🌦️', label:'Showers'      },
+        82: { icon:'⛈️', label:'Heavy shower' },
+        95: { icon:'⛈️', label:'Thunderstorm' },
+        99: { icon:'⛈️', label:'Severe storm' }
+    };
+    return map[code] || { icon:'🌡️', label:'Unknown' };
+}
+
+// ─── Tide (WorldTides / UKHO approximation) ───────────────────────────────────
+// Real tide data requires an API key (UKHO Admiralty or WorldTides).
+// Until that's configured, we show a meaningful approximation using the
+// well-known tidal pattern for the Medway/Thames area (semidiurnal, ~12h 25min).
+// This is directionally correct for trip planning, not navigational quality.
+function updateTideInst() {
+    // Simple semidiurnal approximation: two high, two low tides per ~24h 50min.
+    // We use a reference spring high-tide epoch for the Medway and compute
+    // approximate current state. This is display/planning quality only.
+    const PERIOD = 12.4206 * 3600 * 1000; // ms per tidal cycle
+    const REF_HIGH = new Date('2025-01-01T06:00:00Z').getTime(); // approx ref HW Sheerness
+    const now = Date.now();
+    const phase = ((now - REF_HIGH) % PERIOD + PERIOD) % PERIOD;
+    const fraction = phase / PERIOD; // 0 = high, 0.5 = low
+    // Cosine: 1 = high water, -1 = low water
+    const cosVal = Math.cos(2 * Math.PI * fraction);
+    const normalised = (cosVal + 1) / 2; // 0 = LW, 1 = HW
+
+    const isFalling = fraction < 0.5;
+    const timeToTurn = isFalling
+        ? ((0.5 - fraction) * PERIOD)
+        : ((1.0 - fraction) * PERIOD);
+    const minsToTurn = Math.round(timeToTurn / 60000);
+    const hh = Math.floor(minsToTurn / 60);
+    const mm = String(minsToTurn % 60).padStart(2,'0');
+
+    const tideEl = document.getElementById('inst-tide');
+    const nextEl = document.getElementById('inst-tide-next');
+    const bar    = document.getElementById('tide-bar');
+
+    tideEl.textContent = isFalling ? '↓ EBB' : '↑ FLOOD';
+    nextEl.textContent = (isFalling ? 'LW' : 'HW') + ' in ' + hh + 'h' + mm;
+    bar.style.width = Math.round(normalised * 100) + '%';
+}
+
+// Update tide display every minute
+updateTideInst();
+setInterval(updateTideInst, 60000);
+
+// ─── Auto-refresh weather every 10 min ───────────────────────────────────────
+setInterval(() => {
+    if (lastPos) fetchWeather(lastPos.latitude, lastPos.longitude);
+}, WEATHER_TTL);
+</script>
+
+<!-- Google Maps + Places (same key as route planner) -->
+<script src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,places&loading=async&callback=initMap" async defer></script>
+
+</body>
+</html>

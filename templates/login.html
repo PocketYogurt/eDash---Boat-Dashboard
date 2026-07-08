@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>eBoat — Sign In</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0F2436">
+<style>
+*{ box-sizing:border-box; margin:0; padding:0; }
+:root{
+  --ink:#0A1929; --panel:#0F2436; --panel-light:#16344A;
+  --line:#27475F; --text:#E7EEF2; --text-dim:#8FA8B8;
+  --amber:#F4A93B; --teal:#2FB8A6; --danger:#E5564A;
+  --radius:10px;
+}
+html,body{
+  height:100%; font-family:'Inter',sans-serif;
+  background:var(--ink); color:var(--text);
+  display:flex; align-items:center; justify-content:center;
+}
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:40px 36px;
+  width:100%; max-width:380px;
+  box-shadow:0 24px 64px rgba(0,0,0,.5);
+}
+.brand{
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:32px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:16px; letter-spacing:0.1em;
+  text-transform:uppercase; color:var(--text-dim);
+}
+.brand svg{ width:24px; height:24px; color:var(--teal); }
+h1{ font-size:22px; font-weight:700; margin-bottom:6px; }
+.subtitle{ color:var(--text-dim); font-size:14px; margin-bottom:28px; }
+label{
+  display:block; font-size:12px; font-weight:600;
+  letter-spacing:0.05em; color:var(--text-dim);
+  text-transform:uppercase; margin-bottom:6px;
+}
+input{
+  width:100%; background:var(--panel-light);
+  border:1px solid var(--line); border-radius:var(--radius);
+  color:var(--text); font-family:'Inter',sans-serif; font-size:15px;
+  padding:12px 14px; margin-bottom:18px; outline:none;
+  transition:border-color .15s;
+}
+input:focus{ border-color:var(--teal); }
+button{
+  width:100%; background:var(--teal); border:none;
+  border-radius:var(--radius); color:var(--ink);
+  font-family:'Inter',sans-serif; font-size:15px; font-weight:700;
+  padding:13px; cursor:pointer; transition:opacity .15s;
+}
+button:hover{ opacity:0.9; }
+button:disabled{ opacity:0.5; cursor:not-allowed; }
+.error{
+  background:rgba(229,86,74,.15); border:1px solid var(--danger);
+  border-radius:var(--radius); color:var(--danger);
+  font-size:13px; padding:10px 14px; margin-bottom:18px; display:none;
+}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M2 20h20M6 20V10M18 20V10M12 20V4M8 8l4-4 4 4"/>
+    </svg>
+    eBoat
+  </div>
+  <h1>Sign in</h1>
+  <p class="subtitle">Enter your credentials to access the dashboard</p>
+  <div class="error" id="err"></div>
+  <form id="form" onsubmit="return false">
+    <label for="username">Username</label>
+    <input id="username" type="text" autocomplete="username" autofocus required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button id="btn" onclick="login()">Sign in</button>
+  </form>
+</div>
+<script>
+async function login() {
+  const btn = document.getElementById('btn');
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value
+      })
+    });
+    if (r.ok) {
+      window.location.href = '/';
+    } else {
+      const d = await r.json();
+      err.textContent = d.detail || 'Login failed';
+      err.style.display = 'block';
+    }
+  } catch(e) {
+    err.textContent = 'Could not reach server — check your connection';
+    err.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Sign in';
+}
+document.getElementById('form').addEventListener('keydown', e => {
+  if(e.key === 'Enter') login();
+});
+</script>
+</body>
+</html>
